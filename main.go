@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/SharokhAtaie/extractify/scanner"
 	"github.com/go-resty/resty/v2"
+	"github.com/logrusorgru/aurora/v4"
 	"github.com/projectdiscovery/goflags"
 	"github.com/projectdiscovery/gologger"
 	fileutil "github.com/projectdiscovery/utils/file"
@@ -73,7 +74,7 @@ func main() {
 		gologger.Info().Msgf("Processing %s", opt.file)
 		secrets, urls, endpoints, parameters := Run(bin, opt.file)
 
-		HandleResults(opt.endpoint, opt.parameter, opt.urls, opt.secret, opt.all, secrets, urls, endpoints, parameters)
+		HandleResults(opt.endpoint, opt.parameter, opt.urls, opt.secret, opt.all, secrets, urls, endpoints, parameters, opt.file)
 		return
 	}
 
@@ -105,11 +106,10 @@ func main() {
 			gologger.Error().Msgf("%s [%s]\n\n", err, url)
 			continue
 		}
-		gologger.Info().Msgf("Processing %s\n\n", url)
 
 		secrets, urls, endpoints, parameters := Run(Data, url)
 
-		HandleResults(opt.endpoint, opt.parameter, opt.urls, opt.secret, opt.all, secrets, urls, endpoints, parameters)
+		HandleResults(opt.endpoint, opt.parameter, opt.urls, opt.secret, opt.all, secrets, urls, endpoints, parameters, url)
 	}
 }
 
@@ -135,69 +135,69 @@ func Run(Data []byte, Source string) ([]scanner.SecretMatched, []string, []strin
 	return SecretMatchResult, sortedUrls, sortedEndpoints, sUtils.Dedupe(ParameterMatchResults)
 }
 
-func HandleResults(endpoint, parameter, url, secret, all bool, secrets []scanner.SecretMatched, urls, endpoints, parameters []string) {
+func HandleResults(endpoint, parameter, url, secret, all bool, secrets []scanner.SecretMatched, urls, endpoints, parameters []string, input string) {
 	if endpoint {
-		HandleEndpoint(endpoints)
+		HandleEndpoint(endpoints, input)
 	} else if parameter {
-		HandleParameter(parameters)
+		HandleParameter(parameters, input)
 	} else if url {
-		HandleURL(urls)
+		HandleURL(urls, input)
 	} else if secret {
-		HandleSecret(secrets)
+		HandleSecret(secrets, input)
 	} else if all {
-		HandleSecret(secrets)
-		HandleURL(urls)
-		HandleEndpoint(endpoints)
-		HandleParameter(parameters)
+		HandleSecret(secrets, input)
+		HandleURL(urls, input)
+		HandleEndpoint(endpoints, input)
+		HandleParameter(parameters, input)
 	} else {
-		HandleSecret(secrets)
+		HandleSecret(secrets, input)
 	}
 }
 
-func HandleSecret(secrets []scanner.SecretMatched) {
+func HandleSecret(secrets []scanner.SecretMatched, input string) {
 	if len(secrets) > 0 {
-		gologger.Info().Msgf("Secrets")
+		fmt.Printf("[%s] Secrets %s\n", aurora.Blue("INF"), input)
 		for _, secret := range secrets {
-			fmt.Printf("Name: %s\nMatch: %s\n\n", secret.Secret.Name, secret.Match)
+			fmt.Printf("%s: %s\n%s: %s\n\n", aurora.Green("Name"), secret.Secret.Name, aurora.Green("Match"), secret.Match)
 		}
 	} else {
-		gologger.Info().Msgf("No results for Secrets\n\n")
+		gologger.Info().Msgf("%s \nNo results for Secrets\n\n", input)
 	}
 }
 
-func HandleEndpoint(endpoints []string) {
+func HandleEndpoint(endpoints []string, input string) {
 	if len(endpoints) > 0 {
-		gologger.Info().Msgf("Endpoints")
+		fmt.Printf("[%s] Endpoints %s\n", aurora.Blue("INF"), input)
 		for _, endpoint := range endpoints {
 			fmt.Println(endpoint)
 		}
 		fmt.Println("")
 	} else {
-		gologger.Info().Msgf("No results for Endpoints\n\n")
+		gologger.Info().Msgf("%s \nNo results for Endpoints\n\n", input)
 	}
 }
 
-func HandleURL(urls []string) {
+func HandleURL(urls []string, input string) {
 	if len(urls) > 0 {
-		gologger.Info().Msgf("Urls")
+		fmt.Printf("[%s] URLs %s\n", aurora.Blue("INF"), input)
 		for _, URL := range urls {
 			fmt.Println(URL)
 		}
 		fmt.Println("")
 	} else {
-		gologger.Info().Msgf("No results for URLs\n\n")
+		gologger.Info().Msgf("%s \nNo results for URLs\n\n", input)
 	}
 }
 
-func HandleParameter(parameters []string) {
+func HandleParameter(parameters []string, input string) {
 	if len(parameters) > 0 {
-		gologger.Info().Msgf("Parameters")
+		fmt.Printf("[%s] Parameters %s\n", aurora.Blue("INF"), input)
 		for _, param := range parameters {
 			fmt.Println(param)
 		}
 		fmt.Println("")
 	} else {
-		gologger.Info().Msgf("No results for Parameters\n\n")
+		gologger.Info().Msgf("%s \nNo results for Parameters\n\n", input)
 	}
 }
 
