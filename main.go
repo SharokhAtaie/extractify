@@ -136,20 +136,31 @@ func Run(Data []byte, Source string) ([]scanner.SecretMatched, []string, []strin
 }
 
 func HandleResults(endpoint, parameter, url, secret, all bool, secrets []scanner.SecretMatched, urls, endpoints, parameters []string, input string) {
+	if all {
+		HandleSecret(secrets, input)
+		HandleURL(urls, input)
+		HandleEndpoint(endpoints, input)
+		HandleParameter(parameters, input)
+		return
+	}
+
 	if endpoint {
 		HandleEndpoint(endpoints, input)
-	} else if parameter {
+	}
+
+	if parameter {
 		HandleParameter(parameters, input)
-	} else if url {
+	}
+
+	if url {
 		HandleURL(urls, input)
-	} else if secret {
+	}
+
+	if secret {
 		HandleSecret(secrets, input)
-	} else if all {
-		HandleSecret(secrets, input)
-		HandleURL(urls, input)
-		HandleEndpoint(endpoints, input)
-		HandleParameter(parameters, input)
-	} else {
+	}
+	
+	if !endpoint && !parameter && !url && !secret && !all {
 		HandleSecret(secrets, input)
 	}
 }
