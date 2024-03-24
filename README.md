@@ -22,10 +22,10 @@ INPUTS:
    -f, -file string  Local file data for scanning
 
 EXTRACTS:
-   -ee, -endpoints   Extract endpoints (default)
+   -es, -secrets     Extract secrets (default)
+   -ee, -endpoints   Extract endpoints 
    -eu, -urls        Extract urls
    -ep, -parameters  Extract parameters
-   -es, -secrets     Extract secrets
    -ea, -all         Extract all
 
 OTHERS:

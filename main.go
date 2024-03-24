@@ -13,6 +13,7 @@ import (
 	urlutil "github.com/projectdiscovery/utils/url"
 	"io"
 	"log"
+	"net/http"
 	"os"
 	"strings"
 	"time"
@@ -28,6 +29,7 @@ type options struct {
 	all       bool
 	urls      bool
 	header    string
+	filterExt goflags.StringSlice
 	verbose   bool
 }
 
@@ -52,6 +54,7 @@ func main() {
 	)
 
 	flagSet.CreateGroup("Others", "Others",
+		flagSet.StringSliceVarP(&opt.filterExt, "filter-extension", "fe", []string{"svg", "png", "jpg", "jpeg"}, "list of extensions svg,png (comma-separated)", goflags.FileCommaSeparatedStringSliceOptions),
 		flagSet.StringVarP(&opt.header, "header", "H", "", "Set custom header"),
 		flagSet.BoolVarP(&opt.verbose, "verbose", "v", false, "Verbose mode"),
 	)
@@ -72,7 +75,7 @@ func main() {
 		}
 
 		gologger.Info().Msgf("Processing %s", opt.file)
-		secrets, urls, endpoints, parameters := Run(bin, opt.file)
+		secrets, urls, endpoints, parameters := Run(bin, opt.file, opt.filterExt)
 
 		HandleResults(opt.endpoint, opt.parameter, opt.urls, opt.secret, opt.all, secrets, urls, endpoints, parameters, opt.file)
 		return
@@ -107,19 +110,19 @@ func main() {
 			continue
 		}
 
-		secrets, urls, endpoints, parameters := Run(Data, url)
+		secrets, urls, endpoints, parameters := Run(Data, url, opt.filterExt)
 
 		HandleResults(opt.endpoint, opt.parameter, opt.urls, opt.secret, opt.all, secrets, urls, endpoints, parameters, url)
 	}
 }
 
-func Run(Data []byte, Source string) ([]scanner.SecretMatched, []string, []string, []string) {
+func Run(Data []byte, Source string, FilterExtension []string) ([]scanner.SecretMatched, []string, []string, []string) {
 	var sortedUrls []string
 	var sortedEndpoints []string
 
 	SecretMatchResult := scanner.SecretsMatch(Source, Data)
 
-	EndpointMatchResult := scanner.EndpointsMatch(Data)
+	EndpointMatchResult := scanner.EndpointsMatch(Data, FilterExtension)
 
 	for _, v := range EndpointMatchResult {
 		if len(v) >= 4 && v[:4] == "http" || len(v) >= 5 && v[:5] == "https" {
@@ -159,7 +162,7 @@ func HandleResults(endpoint, parameter, url, secret, all bool, secrets []scanner
 	if secret {
 		HandleSecret(secrets, input)
 	}
-	
+
 	if !endpoint && !parameter && !url && !secret && !all {
 		HandleSecret(secrets, input)
 	}
@@ -238,7 +241,9 @@ func Request(URL string, Header string, Verbose bool) ([]byte, error) {
 		SetHeader("Accept", "*/*").
 		SetHeader("Origin", u.Scheme+"://"+u.Host).
 		SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true}).
-		SetRedirectPolicy(resty.FlexibleRedirectPolicy(3))
+		SetRedirectPolicy(resty.RedirectPolicyFunc(func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		}))
 
 	if Header != "" {
 		headers := strings.Split(Header, ":")
@@ -258,6 +263,10 @@ func Request(URL string, Header string, Verbose bool) ([]byte, error) {
 
 	if err != nil {
 		return nil, err
+	}
+
+	if resp.StatusCode() != 200 {
+		return nil, fmt.Errorf("status code is not 200: %d", resp.StatusCode())
 	}
 
 	return resp.Body(), nil

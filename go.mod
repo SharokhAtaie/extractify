@@ -3,6 +3,8 @@ module github.com/SharokhAtaie/extractify
 go 1.21
 
 require (
+	github.com/go-resty/resty/v2 v2.11.0
+	github.com/logrusorgru/aurora/v4 v4.0.0
 	github.com/projectdiscovery/goflags v0.1.33
 	github.com/projectdiscovery/gologger v1.1.12
 	github.com/projectdiscovery/utils v0.0.70
@@ -14,7 +16,6 @@ require (
 	github.com/aymerick/douceur v0.2.0 // indirect
 	github.com/cnf/structhash v0.0.0-20201127153200-e1b16c1ebc08 // indirect
 	github.com/dsnet/compress v0.0.2-0.20210315054119-f66993602bf5 // indirect
-	github.com/go-resty/resty/v2 v2.11.0 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/gorilla/css v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
