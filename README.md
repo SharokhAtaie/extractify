@@ -1,5 +1,5 @@
 # extractify
-A tool for extract Endpoints, URLs, Parameters and Secrets from contents
+A tool for extract Endpoints, URLs and Secrets from contents
 
 # Installation
 ```
@@ -25,7 +25,6 @@ EXTRACTS:
    -es, -secrets     Extract secrets (default)
    -ee, -endpoints   Extract endpoints 
    -eu, -urls        Extract urls
-   -ep, -parameters  Extract parameters
    -ea, -all         Extract all
 
 OTHERS:
@@ -44,5 +43,8 @@ You can integrate this tool with others, such as subjs (https://github.com/lc/su
 ```bash
 echo "https://github.com" | subjs | extractify | tee results
 ```
+
+For output you can use `tee` like above example.
+
 
 ### Thanks to [@projectdiscovery](https://github.com/projectdiscovery/) and [@edoardottt](https://github.com/edoardottt/) for best tools

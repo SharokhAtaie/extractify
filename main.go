@@ -9,7 +9,6 @@ import (
 	"github.com/projectdiscovery/goflags"
 	"github.com/projectdiscovery/gologger"
 	fileutil "github.com/projectdiscovery/utils/file"
-	sUtils "github.com/projectdiscovery/utils/slice"
 	urlutil "github.com/projectdiscovery/utils/url"
 	"io"
 	"log"
@@ -25,7 +24,6 @@ type options struct {
 	list      string
 	endpoint  bool
 	secret    bool
-	parameter bool
 	all       bool
 	urls      bool
 	header    string
@@ -37,7 +35,7 @@ func main() {
 	opt := &options{}
 
 	flagSet := goflags.NewFlagSet()
-	flagSet.SetDescription("A tool for extract Endpoints, URLs, Parameters and Secrets from contents")
+	flagSet.SetDescription("A tool for extract Endpoints, URLs and Secrets from contents")
 
 	flagSet.CreateGroup("Inputs", "Inputs",
 		flagSet.StringVarP(&opt.url, "url", "u", "", "URL for scanning"),
@@ -48,7 +46,6 @@ func main() {
 	flagSet.CreateGroup("Extract", "Extracts",
 		flagSet.BoolVarP(&opt.endpoint, "endpoints", "ee", false, "Extract endpoints"),
 		flagSet.BoolVarP(&opt.urls, "urls", "eu", false, "Extract urls"),
-		flagSet.BoolVarP(&opt.parameter, "parameters", "ep", false, "Extract parameters"),
 		flagSet.BoolVarP(&opt.secret, "secrets", "es", false, "Extract secrets"),
 		flagSet.BoolVarP(&opt.all, "all", "ea", false, "Extract all"),
 	)
@@ -75,9 +72,9 @@ func main() {
 		}
 
 		gologger.Info().Msgf("Processing %s", opt.file)
-		secrets, urls, endpoints, parameters := Run(bin, opt.file, opt.filterExt)
+		secrets, urls, endpoints := Run(bin, opt.file, opt.filterExt)
 
-		HandleResults(opt.endpoint, opt.parameter, opt.urls, opt.secret, opt.all, secrets, urls, endpoints, parameters, opt.file)
+		HandleResults(opt.endpoint, opt.urls, opt.secret, opt.all, secrets, urls, endpoints, opt.file)
 		return
 	}
 
@@ -110,13 +107,13 @@ func main() {
 			continue
 		}
 
-		secrets, urls, endpoints, parameters := Run(Data, url, opt.filterExt)
+		secrets, urls, endpoints := Run(Data, url, opt.filterExt)
 
-		HandleResults(opt.endpoint, opt.parameter, opt.urls, opt.secret, opt.all, secrets, urls, endpoints, parameters, url)
+		HandleResults(opt.endpoint, opt.urls, opt.secret, opt.all, secrets, urls, endpoints, url)
 	}
 }
 
-func Run(Data []byte, Source string, FilterExtension []string) ([]scanner.SecretMatched, []string, []string, []string) {
+func Run(Data []byte, Source string, FilterExtension []string) ([]scanner.SecretMatched, []string, []string) {
 	var sortedUrls []string
 	var sortedEndpoints []string
 
@@ -133,26 +130,19 @@ func Run(Data []byte, Source string, FilterExtension []string) ([]scanner.Secret
 		}
 	}
 
-	ParameterMatchResults := scanner.ParameterMatch(string(Data))
-
-	return SecretMatchResult, sortedUrls, sortedEndpoints, sUtils.Dedupe(ParameterMatchResults)
+	return SecretMatchResult, sortedUrls, sortedEndpoints
 }
 
-func HandleResults(endpoint, parameter, url, secret, all bool, secrets []scanner.SecretMatched, urls, endpoints, parameters []string, input string) {
+func HandleResults(endpoint, url, secret, all bool, secrets []scanner.SecretMatched, urls, endpoints []string, input string) {
 	if all {
 		HandleSecret(secrets, input)
 		HandleURL(urls, input)
 		HandleEndpoint(endpoints, input)
-		HandleParameter(parameters, input)
 		return
 	}
 
 	if endpoint {
 		HandleEndpoint(endpoints, input)
-	}
-
-	if parameter {
-		HandleParameter(parameters, input)
 	}
 
 	if url {
@@ -163,7 +153,7 @@ func HandleResults(endpoint, parameter, url, secret, all bool, secrets []scanner
 		HandleSecret(secrets, input)
 	}
 
-	if !endpoint && !parameter && !url && !secret && !all {
+	if !endpoint && !url && !secret && !all {
 		HandleSecret(secrets, input)
 	}
 }
@@ -200,18 +190,6 @@ func HandleURL(urls []string, input string) {
 		fmt.Println("")
 	} else {
 		gologger.Info().Msgf("%s \nNo results for URLs\n\n", input)
-	}
-}
-
-func HandleParameter(parameters []string, input string) {
-	if len(parameters) > 0 {
-		fmt.Printf("[%s] Parameters %s\n", aurora.Blue("INF"), input)
-		for _, param := range parameters {
-			fmt.Println(param)
-		}
-		fmt.Println("")
-	} else {
-		gologger.Info().Msgf("%s \nNo results for Parameters\n\n", input)
 	}
 }
 
