@@ -31,6 +31,7 @@ OTHERS:
    -fe, -filter-extension string[]  list of extensions svg,png (comma-separated) (default ["svg", "png", "jpg", "jpeg"])
    -H, -header string  Set custom header
    -v, -verbose        Verbose mode
+   -t, -threads        Number of threads to use (default 5)
 ```
 
 You can use this as stdin:
