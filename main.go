@@ -3,6 +3,14 @@ package main
 import (
 	"crypto/tls"
 	"fmt"
+	"io"
+	"log"
+	"net/http"
+	"os"
+	"strings"
+	"sync"
+	"time"
+
 	"github.com/SharokhAtaie/extractify/scanner"
 	"github.com/go-resty/resty/v2"
 	"github.com/logrusorgru/aurora/v4"
@@ -10,25 +18,20 @@ import (
 	"github.com/projectdiscovery/gologger"
 	fileutil "github.com/projectdiscovery/utils/file"
 	urlutil "github.com/projectdiscovery/utils/url"
-	"io"
-	"log"
-	"net/http"
-	"os"
-	"strings"
-	"time"
 )
 
 type options struct {
-	file      string
 	url       string
 	list      string
+	file      string
+	header    string
 	endpoint  bool
 	secret    bool
 	all       bool
 	urls      bool
-	header    string
-	filterExt goflags.StringSlice
 	verbose   bool
+	threads   int
+	filterExt goflags.StringSlice
 }
 
 func main() {
@@ -53,6 +56,7 @@ func main() {
 	flagSet.CreateGroup("Others", "Others",
 		flagSet.StringSliceVarP(&opt.filterExt, "filter-extension", "fe", []string{"svg", "png", "jpg", "jpeg"}, "list of extensions svg,png (comma-separated)", goflags.FileCommaSeparatedStringSliceOptions),
 		flagSet.StringVarP(&opt.header, "header", "H", "", "Set custom header"),
+		flagSet.IntVarP(&opt.threads, "threads", "t", 5, "number of threads to use (default 5)"),
 		flagSet.BoolVarP(&opt.verbose, "verbose", "v", false, "Verbose mode"),
 	)
 
@@ -99,18 +103,34 @@ func main() {
 		URLs = strings.Fields(string(bin))
 	}
 
-	for _, url := range URLs {
+	var wg sync.WaitGroup
+	urlToProcess := make(chan string)
 
-		Data, err := Request(url, opt.header, opt.verbose)
-		if err != nil {
-			gologger.Error().Msgf("%s [%s]\n\n", err, url)
-			continue
-		}
+	for i := 0; i < opt.threads; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for u := range urlToProcess {
+				Data, err := Request(u, opt.header, opt.verbose)
+				if err != nil {
+					gologger.Error().Msgf("%s [%s]\n\n", err, u)
+					return
+				}
 
-		secrets, urls, endpoints := Run(Data, url, opt.filterExt)
+				secrets, urls, endpoints := Run(Data, u, opt.filterExt)
 
-		HandleResults(opt.endpoint, opt.urls, opt.secret, opt.all, secrets, urls, endpoints, url)
+				HandleResults(opt.endpoint, opt.urls, opt.secret, opt.all, secrets, urls, endpoints, u)
+			}
+		}()
 	}
+
+	for _, url := range URLs {
+		urlToProcess <- url
+	}
+
+	close(urlToProcess)
+
+	wg.Wait()
 }
 
 func Run(Data []byte, Source string, FilterExtension []string) ([]scanner.SecretMatched, []string, []string) {
