@@ -20,7 +20,7 @@ import (
 	urlutil "github.com/projectdiscovery/utils/url"
 )
 
-type options struct {
+type Options struct {
 	url       string
 	list      string
 	file      string
@@ -35,7 +35,7 @@ type options struct {
 }
 
 func main() {
-	opt := &options{}
+	opt := &Options{}
 
 	flagSet := goflags.NewFlagSet()
 	flagSet.SetDescription("A tool for extract Endpoints, URLs and Secrets from contents")
@@ -82,16 +82,16 @@ func main() {
 		return
 	}
 
-	var URLs []string
+	var urls []string
 
-	URLs = append(URLs, opt.url)
+	urls = append(urls, opt.url)
 
 	if fileutil.FileExists(opt.list) {
 		bin, err := os.ReadFile(opt.list)
 		if err != nil {
 			gologger.Error().Msgf("failed to read file %v got %v", opt.list, err)
 		}
-		URLs = strings.Fields(string(bin))
+		urls = strings.Fields(string(bin))
 	}
 
 	if fileutil.HasStdin() {
@@ -100,7 +100,7 @@ func main() {
 			gologger.Error().Msgf("failed to read file %v got %v", opt.list, err)
 		}
 
-		URLs = strings.Fields(string(bin))
+		urls = strings.Fields(string(bin))
 	}
 
 	var wg sync.WaitGroup
@@ -111,20 +111,20 @@ func main() {
 		go func() {
 			defer wg.Done()
 			for u := range urlToProcess {
-				Data, err := Request(u, opt.header, opt.verbose)
+				data, err := Request(u, opt.header, opt.verbose)
 				if err != nil {
 					gologger.Error().Msgf("%s [%s]\n\n", err, u)
 					return
 				}
 
-				secrets, urls, endpoints := Run(Data, u, opt.filterExt)
+				secrets, urls, endpoints := Run(data, u, opt.filterExt)
 
 				HandleResults(opt.endpoint, opt.urls, opt.secret, opt.all, secrets, urls, endpoints, u)
 			}
 		}()
 	}
 
-	for _, url := range URLs {
+	for _, url := range urls {
 		urlToProcess <- url
 	}
 
@@ -133,15 +133,15 @@ func main() {
 	wg.Wait()
 }
 
-func Run(Data []byte, Source string, FilterExtension []string) ([]scanner.SecretMatched, []string, []string) {
+func Run(data []byte, source string, filterExtension []string) ([]scanner.SecretMatched, []string, []string) {
 	var sortedUrls []string
 	var sortedEndpoints []string
 
-	SecretMatchResult := scanner.SecretsMatch(Source, Data)
+	secretMatchResult := scanner.SecretsMatch(source, data)
 
-	EndpointMatchResult := scanner.EndpointsMatch(Data, FilterExtension)
+	endpointMatchResult := scanner.EndpointsMatch(data, filterExtension)
 
-	for _, v := range EndpointMatchResult {
+	for _, v := range endpointMatchResult {
 		if len(v) >= 4 && v[:4] == "http" || len(v) >= 5 && v[:5] == "https" {
 			sortedUrls = append(sortedUrls, v)
 			continue
@@ -150,7 +150,7 @@ func Run(Data []byte, Source string, FilterExtension []string) ([]scanner.Secret
 		}
 	}
 
-	return SecretMatchResult, sortedUrls, sortedEndpoints
+	return secretMatchResult, sortedUrls, sortedEndpoints
 }
 
 func HandleResults(endpoint, url, secret, all bool, secrets []scanner.SecretMatched, urls, endpoints []string, input string) {
@@ -221,16 +221,16 @@ func ParseURL(url string) (*urlutil.URL, error) {
 	return urlx, err
 }
 
-func Request(URL string, Header string, Verbose bool) ([]byte, error) {
+func Request(url string, header string, verbose bool) ([]byte, error) {
 
-	u, _ := ParseURL(URL)
+	u, _ := ParseURL(url)
 
 	if u.Host == "" {
 		return nil, fmt.Errorf("%s", "Domain is not valid")
 	}
 
 	if u.Scheme == "" {
-		URL = "https://" + u.Host
+		url = "https://" + u.Host
 	}
 
 	client := resty.New().
@@ -243,8 +243,8 @@ func Request(URL string, Header string, Verbose bool) ([]byte, error) {
 			return http.ErrUseLastResponse
 		}))
 
-	if Header != "" {
-		headers := strings.Split(Header, ":")
+	if header != "" {
+		headers := strings.Split(header, ":")
 		if len(headers) == 2 {
 			client.SetHeader(headers[0], strings.TrimSpace(headers[1]))
 		} else {
@@ -252,12 +252,12 @@ func Request(URL string, Header string, Verbose bool) ([]byte, error) {
 		}
 	}
 
-	if Verbose {
+	if verbose {
 		client.SetDebug(true)
 	}
 
 	resp, err := client.R().
-		Get(URL)
+		Get(url)
 
 	if err != nil {
 		return nil, err
