@@ -183,13 +183,6 @@ func GetSecretRegexes() []Secret {
 			"?",
 		},
 		{
-			"Square access token",
-			"Square access token",
-			`sq0atp\-[0-9A-Za-z\-_]{22}|EAAAE[a-zA-Z0-9\-_]{59}`,
-			[]string{},
-			"?",
-		},
-		{
 			"Square OAuth secret",
 			"Square OAuth secret",
 			`sq0csp\-[0-9A-Za-z\-_]{43}`,
