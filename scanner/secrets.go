@@ -43,13 +43,6 @@ func GetSecretRegexes() []Secret {
 			"?",
 		},
 		{
-			"Amazon SNS topic",
-			"Amazon SNS topic",
-			`arn:aws:sns:[a-z0-9\-]+:[0-9]+:[A-Za-z0-9\-_]+`,
-			[]string{},
-			"?",
-		},
-		{
 			"Facebook Access Token",
 			"Facebook Access Token",
 			`EAACEdEose0cBA[0-9A-Za-z]+`,
@@ -64,13 +57,6 @@ func GetSecretRegexes() []Secret {
 			"?",
 		},
 		{
-			"Facebook Client ID",
-			"Facebook Client ID",
-			`(?i)(facebook|fb)(.{0,20})?['\"][0-9]{13,17}['\"]`,
-			[]string{"facebook.com", "facebook.svg"},
-			"?",
-		},
-		{
 			"Cloudinary Basic Auth",
 			"Cloudinary Basic Auth",
 			`cloudinary://[0-9]{15}:[0-9A-Za-z\-_]+@[0-9A-Za-z\-_]+`,
@@ -78,23 +64,9 @@ func GetSecretRegexes() []Secret {
 			"?",
 		},
 		{
-			"Firebase Database",
-			"Firebase Database",
-			`([a-z0-9.-]+\.firebaseio\.com|[a-z0-9.-]+\.firebaseapp\.com)`,
-			[]string{},
-			"?",
-		},
-		{
 			"Twitter Secret Key",
 			"Twitter Secret Key",
 			`(?i)twitter(.{0,20})?[0-9a-z]{35,44}`,
-			[]string{"twitter.com"},
-			"?",
-		},
-		{
-			"Twitter Client ID",
-			"Twitter Client ID",
-			`(?i)twitter(.{0,20})?[0-9a-z]{18,25}`,
 			[]string{"twitter.com"},
 			"?",
 		},
@@ -134,13 +106,6 @@ func GetSecretRegexes() []Secret {
 			"?",
 		},
 		{
-			"LinkedIn Client ID",
-			"LinkedIn Client ID",
-			`(?i)linkedin(.{0,20})?(?-i)[0-9a-z]{12}`,
-			[]string{"linkedin.com", "linkedin.svg"},
-			"?",
-		},
-		{
 			"LinkedIn Secret Key",
 			"LinkedIn Secret Key",
 			`(?i)linkedin(.{0,20})?[0-9a-z]{16}`,
@@ -158,20 +123,6 @@ func GetSecretRegexes() []Secret {
 			"Asymmetric Private Key",
 			"Asymmetric Private Key",
 			`-----BEGIN ((EC|PGP|DSA|RSA|OPENSSH) )?PRIVATE KEY( BLOCK)?-----`,
-			[]string{},
-			"?",
-		},
-		{
-			"Google API key",
-			"Google API key",
-			`AIza[0-9A-Za-z\-_]{35}`,
-			[]string{},
-			"?",
-		},
-		{
-			"Google (GCP) Service Account",
-			"Google (GCP) Service Account",
-			`"type": "service_account"`,
 			[]string{},
 			"?",
 		},
@@ -297,21 +248,14 @@ func GetSecretRegexes() []Secret {
 		{
 			"Secret indicator with _",
 			"Secret indicator with _",
-			`(?i)['|"][a-zA-Z0-9\-]+[\.|\-|_](access-key|password|apikey|secret|access_key|secret-key|pwd|passwd|appsecret|app_secret)['|"](\s*?):(\s*?)['|"].*?['|"](\s*?)`,
+			`(?i)['|"][a-zA-Z0-9\-]+[\.|\-|_](access-key|apikey|secret|access_key|secret-key|pwd|passwd|appsecret|app_secret)['|"](\s*?):(\s*?)['|"].*?['|"](\s*?)`,
 			[]string{},
 			"?",
 		},
 		{
 			"Escaped credentials",
 			"Escaped credentials",
-			`(?im)\\['|"](admin|user|client|users|)[_\.]?(pass|password|passwd|secret|credentials|token)\\['|"]\s*?:\s*?\\['|"].*?\\['|"]`,
-			[]string{},
-			"?",
-		},
-		{
-			"API Tokens with high entropy",
-			"API Tokens with high entropy",
-			`(?i)token:\s*?['|"][a-zA-Z0-9]+['|"]`,
+			`(?im)\\['|"](admin|user|client|users|)[_\.]?(pass|passwd|secret|credentials|token)\\['|"]\s*?:\s*?\\['|"].*?\\['|"]`,
 			[]string{},
 			"?",
 		},
@@ -323,26 +267,10 @@ func GetSecretRegexes() []Secret {
 			"?",
 		},
 		{
-			"Bugsnag API Key",
-			"Bugsnag API Key",
-			`(?i)(bs|bugsnag)(.{0,20})?[0-9a-f]{32}`,
-			[]string{},
-			"?",
-		},
-		{
 			"AWS cognito pool",
 			"AWS Cognito pool",
 			`(us-east-1|us-east-2|us-west-1|us-west-2|sa-east-1):[0-9A-Za-z]{8}-[0-9A-Za-z]{4}` +
 				`-[0-9A-Za-z]{4}-[0-9A-Za-z]{4}-[0-9A-Za-z]{12}`,
-			[]string{},
-			"?",
-		},
-		{
-			"S3 Bucket",
-			"S3 Bucket",
-			`(?:[a-zA-Z0-9_-]+s3\.amazonaws\.com|[a-zA-Z0-9_.-]+amazonaws\.com|` +
-				`[a-zA-Z0-9-\.\_]+\.s3\.amazonaws\.com|s3\:\/\/[a-zA-Z0-9-\.\_]+|` +
-				`s3\.amazonaws\.com/[a-zA-Z0-9-\.\_]+)`,
 			[]string{},
 			"?",
 		},
@@ -384,7 +312,14 @@ func GetSecretRegexes() []Secret {
 		{
 			"Generic Keys",
 			"Generic Keys",
-			`(?i)(?:(?:access_key|access_token|admin_pass|admin_user|algolia_admin_key|x-algolia-api-key|algolia_api_key|alias_pass|alicloud_access_key|ansible_vault_password|aos_key|api_key|api_key_secret|api_key_sid|api_secret|apidocs|apikey|apiSecret|app_debug|app_id|app_key|app_log_level|app_secret|appkey|appkeysecret|application_key|appsecret|appspot|auth_token|authorizationToken|authsecret|aws_access|aws_access_key_id|aws_bucket|aws_key|aws_secret|aws_secret_key|aws_token|AWSSecretKey|b2_app_key|bashrc password|bintray_apikey|bintray_gpg_password|bintray_key|bintraykey|bluemix_api_key|bluemix_pass|browserstack_access_key|bucket_password|bucketeer_aws_access_key_id|bucketeer_aws_secret_access_key|built_branch_deploy_key|bx_password|cache_driver|cache_s3_secret_key|cattle_access_key|cattle_secret_key|certificate_password|ci_deploy_password|client_secret|client_zpk_secret_key|clojars_password|cloud_api_key|cloud_watch_aws_access_key|cloudant_password|cloudflare_api_key|cloudflare_auth_key|cloudinary_api_secret|cloudinary_name|codecov_token|config|conn.login|connectionstring|consumer_key|consumer_secret|credentials|cypress_record_key|database_password|database_schema_test|datadog_api_key|datadog_app_key|db_password|db_server|db_username|dbpasswd|dbpassword|dbuser|deploy_password|digitalocean_ssh_key_body|digitalocean_ssh_key_ids|docker_hub_password|docker_key|docker_pass|docker_passwd|docker_password|dockerhub_password|dockerhubpassword|dot-files|dotfiles|droplet_travis_password|dynamoaccesskeyid|dynamosecretaccesskey|elastica_host|elastica_port|elasticsearch_password|encryption_key|encryption_password|env.heroku_api_key|env.sonatype_password|eureka.awssecretkey)[a-z0-9_.\-,]{0,25})[:<>=|]{1,2}.{0,5}['"]([0-9a-zA-Z\-_=]{8,64})['"]`,
+			`(?i)(?:(?:access_key|access_token|admin_pass|admin_user|algolia_admin_key|x-algolia-api-key|algolia_api_key|alias_pass|alicloud_access_key|ansible_vault_password|aos_key|api_key|api_key_secret|api_key_sid|api_secret|apidocs|apikey|apiSecret|app_debug|app_id|app_key|app_log_level|app_secret|appkey|appkeysecret|application_key|appsecret|appspot|auth_token|authorizationToken|authsecret|aws_access|aws_access_key_id|aws_bucket|aws_key|aws_secret|aws_secret_key|aws_token|AWSSecretKey|b2_app_key|bashrc password|bintray_apikey|bintray_gpg_password|bintray_key|bintraykey|bluemix_api_key|bluemix_pass|browserstack_access_key|bucket_password|bucketeer_aws_access_key_id|bucketeer_aws_secret_access_key|built_branch_deploy_key|bx_password|cache_driver|cache_s3_secret_key|cattle_access_key|cattle_secret_key|certificate_password|ci_deploy_password|client_secret|client_zpk_secret_key|clojars_password|cloud_api_key|cloud_watch_aws_access_key|cloudant_password|cloudflare_api_key|cloudflare_auth_key|cloudinary_api_secret|cloudinary_name|codecov_token|conn.login|connectionstring|consumer_key|consumer_secret|cypress_record_key|database_password|database_schema_test|datadog_api_key|datadog_app_key|db_password|db_server|db_username|dbpasswd|dbpassword|dbuser|deploy_password|digitalocean_ssh_key_body|digitalocean_ssh_key_ids|docker_hub_password|docker_key|docker_pass|docker_passwd|docker_password|dockerhub_password|dockerhubpassword|dot-files|dotfiles|droplet_travis_password|dynamoaccesskeyid|dynamosecretaccesskey|elastica_host|elastica_port|elasticsearch_password|encryption_key|encryption_password|env.heroku_api_key|env.sonatype_password|eureka.awssecretkey)[a-z0-9_.\-,]{0,25})[:<>=|]{1,2}.{0,5}['"]([0-9a-zA-Z\-_=]{8,64})['"]`,
+			[]string{},
+			"?",
+		},
+		{
+			"JWT Token",
+			"Check For JWT Token",
+			`eyJ[0-9A-Za-z-_]+\.[0-9A-Za-z-_]+\.[0-9A-Za-z-_]{43,}`,
 			[]string{},
 			"?",
 		},

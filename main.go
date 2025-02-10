@@ -3,19 +3,20 @@ package main
 import (
 	"crypto/tls"
 	"fmt"
-	"github.com/SharokhAtaie/extractify/scanner"
-	"github.com/go-resty/resty/v2"
-	"github.com/logrusorgru/aurora/v4"
-	"github.com/projectdiscovery/goflags"
-	"github.com/projectdiscovery/gologger"
-	fileutil "github.com/projectdiscovery/utils/file"
-	urlutil "github.com/projectdiscovery/utils/url"
 	"io"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
 	"strings"
 	"time"
+
+	"github.com/SharokhAtaie/extractify/scanner"
+	"github.com/logrusorgru/aurora/v4"
+	"github.com/projectdiscovery/goflags"
+	"github.com/projectdiscovery/gologger"
+	fileutil "github.com/projectdiscovery/utils/file"
+	urlutil "github.com/projectdiscovery/utils/url"
 )
 
 type options struct {
@@ -28,7 +29,6 @@ type options struct {
 	urls      bool
 	header    string
 	filterExt goflags.StringSlice
-	verbose   bool
 }
 
 func main() {
@@ -51,9 +51,8 @@ func main() {
 	)
 
 	flagSet.CreateGroup("Others", "Others",
-		flagSet.StringSliceVarP(&opt.filterExt, "filter-extension", "fe", []string{"svg", "png", "jpg", "jpeg"}, "list of extensions svg,png (comma-separated)", goflags.FileCommaSeparatedStringSliceOptions),
+		flagSet.StringSliceVarP(&opt.filterExt, "filter-extension", "fe", []string{"js", "svg", "png", "jpg", "jpeg"}, "list of extensions svg,png (comma-separated)", goflags.FileCommaSeparatedStringSliceOptions),
 		flagSet.StringVarP(&opt.header, "header", "H", "", "Set custom header"),
-		flagSet.BoolVarP(&opt.verbose, "verbose", "v", false, "Verbose mode"),
 	)
 
 	if err := flagSet.Parse(); err != nil {
@@ -101,7 +100,7 @@ func main() {
 
 	for _, url := range URLs {
 
-		Data, err := Request(url, opt.header, opt.verbose)
+		Data, err := Request(url, opt.header)
 		if err != nil {
 			gologger.Error().Msgf("%s [%s]\n\n", err, url)
 			continue
@@ -201,7 +200,7 @@ func ParseURL(url string) (*urlutil.URL, error) {
 	return urlx, err
 }
 
-func Request(URL string, Header string, Verbose bool) ([]byte, error) {
+func Request(URL string, Header string) ([]byte, error) {
 
 	u, _ := ParseURL(URL)
 
@@ -213,41 +212,52 @@ func Request(URL string, Header string, Verbose bool) ([]byte, error) {
 		URL = "https://" + u.Host
 	}
 
-	client := resty.New().
-		SetTimeout(2*time.Second).
-		SetHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:120.0) Firefox/120.0").
-		SetHeader("Accept", "*/*").
-		SetHeader("Origin", u.Scheme+"://"+u.Host).
-		SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true}).
-		SetRedirectPolicy(resty.RedirectPolicyFunc(func(req *http.Request, via []*http.Request) error {
-			return http.ErrUseLastResponse
-		}))
-
-	if Header != "" {
-		headers := strings.Split(Header, ":")
-		if len(headers) == 2 {
-			client.SetHeader(headers[0], strings.TrimSpace(headers[1]))
-		} else {
-			gologger.Fatal().Msgf("Custom header is not valid. Example (\"X-header: Value\")")
-		}
+	client := &http.Client{
+		Timeout: 7 * time.Second,
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{
+				MinVersion:         tls.VersionTLS12,
+				InsecureSkipVerify: true,
+			},
+		},
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return nil // Allows redirects to be followed
+		},
 	}
 
-	if Verbose {
-		client.SetDebug(true)
-	}
-
-	resp, err := client.R().
-		Get(URL)
-
+	req, err := http.NewRequest("GET", URL, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	if resp.StatusCode() != 200 {
-		return nil, fmt.Errorf("status code is not 200: %d", resp.StatusCode())
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:120.0) Firefox/120.0")
+	req.Header.Set("Accept", "*/*")
+
+	if Header != "" {
+		headers := strings.SplitN(Header, ":", 2)
+		if len(headers) == 2 {
+			req.Header.Set(strings.TrimSpace(headers[0]), strings.TrimSpace(headers[1]))
+		} else {
+			return nil, fmt.Errorf("Custom header is not valid. Example: 'X-header: Value'")
+		}
 	}
 
-	return resp.Body(), nil
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("status code is not 200: %d", resp.StatusCode)
+	}
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	return body, nil
 }
 
 func PrintUsage() {
