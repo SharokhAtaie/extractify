@@ -1,9 +1,10 @@
 package scanner
 
 import (
-	"github.com/projectdiscovery/gologger"
 	"regexp"
 	"strings"
+
+	"github.com/projectdiscovery/gologger"
 )
 
 func EndpointsMatch(Body []byte, FilterExtensions []string) []string {

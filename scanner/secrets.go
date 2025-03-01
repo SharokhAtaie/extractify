@@ -312,7 +312,7 @@ func GetSecretRegexes() []Secret {
 		{
 			"Secrets From js miner",
 			"Check Keys in keyhacks",
-			`['"` + "`]?(\\w*)" + // Starts with a quote then a word / white spaces
+			`(?i)['"` + "`]?(\\w*)" + // Starts with a quote then a word / white spaces
 				`(\s*)` +
 				`(secret|passwd|authorization|bearer|aws_access_key_id|aws_secret_access_key|irc_pass|SLACK_BOT_TOKEN|id_dsa|` +
 				`secret[_-]?(key|token|secret)|` +

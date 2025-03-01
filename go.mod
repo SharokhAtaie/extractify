@@ -3,7 +3,6 @@ module github.com/SharokhAtaie/extractify
 go 1.21
 
 require (
-	github.com/go-resty/resty/v2 v2.11.0
 	github.com/logrusorgru/aurora/v4 v4.0.0
 	github.com/projectdiscovery/goflags v0.1.33
 	github.com/projectdiscovery/gologger v1.1.12

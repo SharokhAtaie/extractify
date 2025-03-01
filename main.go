@@ -213,7 +213,7 @@ func Request(URL string, Header string) ([]byte, error) {
 	}
 
 	client := &http.Client{
-		Timeout: 7 * time.Second,
+		Timeout: 10 * time.Second,
 		Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{
 				MinVersion:         tls.VersionTLS12,
