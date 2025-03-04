@@ -64,13 +64,6 @@ func GetSecretRegexes() []Secret {
 			"?",
 		},
 		{
-			"Twitter Secret Key",
-			"Twitter Secret Key",
-			`(?i)twitter(.{0,20})?[0-9a-z]{35,44}`,
-			[]string{"twitter.com"},
-			"?",
-		},
-		{
 			"Github Personal Access Token",
 			"Github Personal Access Token",
 			`ghp_.{36}`,
@@ -106,23 +99,9 @@ func GetSecretRegexes() []Secret {
 			"?",
 		},
 		{
-			"LinkedIn Secret Key",
-			"LinkedIn Secret Key",
-			`(?i)linkedin(.{0,20})?[0-9a-z]{16}`,
-			[]string{"linkedin.com", "linkedin.svg"},
-			"?",
-		},
-		{
 			"Slack",
 			"Slack",
 			`xox[baprs]-([0-9a-zA-Z]{10,48})?`,
-			[]string{},
-			"?",
-		},
-		{
-			"Asymmetric Private Key",
-			"Asymmetric Private Key",
-			`-----BEGIN ((EC|PGP|DSA|RSA|OPENSSH) )?PRIVATE KEY( BLOCK)?-----`,
 			[]string{},
 			"?",
 		},
@@ -137,20 +116,6 @@ func GetSecretRegexes() []Secret {
 			"MailChimp API key",
 			"MailChimp API key",
 			`[0-9a-f]{32}-us[0-9]{1,2}`,
-			[]string{},
-			"?",
-		},
-		{
-			"Mailgun API key",
-			"Mailgun API key",
-			`key\-[0-9a-zA-Z]{32}`,
-			[]string{},
-			"?",
-		},
-		{
-			"PayPal Braintree access token",
-			"PayPal Braintree access token",
-			`access_token\$production\$[0-9a-z]{16}\$[0-9a-f]{32}`,
 			[]string{},
 			"?",
 		},
@@ -190,13 +155,6 @@ func GetSecretRegexes() []Secret {
 			"?",
 		},
 		{
-			"Twilio API key",
-			"Twilio API key",
-			`(?i)twilio(.{0,20})?SK[0-9a-f]{32}`,
-			[]string{},
-			"?",
-		},
-		{
 			"Dynatrace token",
 			"Dynatrace token",
 			`dt0[a-zA-Z]{1}[0-9]{2}\.[A-Z0-9]{24}\.[A-Z0-9]{64}`,
@@ -228,20 +186,6 @@ func GetSecretRegexes() []Secret {
 			"Shopify private app access token",
 			"Shopify private app access token",
 			`shppa\_[a-fA-F0-9]{32}`,
-			[]string{},
-			"?",
-		},
-		{
-			"Seen in the past tokens",
-			"Seen in the past tokens",
-			`(?i)['|"](DISCOVERY_IAM_APIKEY|appPassword|slackToken|slack_signing_secret|watson_assistant_api_key|pythonPassword)['|"]`,
-			[]string{},
-			"?",
-		},
-		{
-			"Secret indicator with _",
-			"Secret indicator with _",
-			`(?i)['|"][a-zA-Z0-9\-]+[\.|\-|_](access-key|apikey|secret|access_key|secret-key|pwd|passwd|appsecret|app_secret)['|"](\s*?):(\s*?)['|"].*?['|"](\s*?)`,
 			[]string{},
 			"?",
 		},
@@ -298,7 +242,7 @@ func GetSecretRegexes() []Secret {
 		{
 			"Generic Keys",
 			"Generic Keys",
-			`(?i)(?:(?:access_key|access_token|admin_pass|admin_user|algolia_admin_key|x-algolia-api-key|algolia_api_key|alias_pass|alicloud_access_key|ansible_vault_password|aos_key|api_key|api_key_secret|api_key_sid|api_secret|apidocs|apikey|apiSecret|app_debug|app_id|app_key|app_log_level|app_secret|appkey|appkeysecret|application_key|appsecret|appspot|auth_token|authorizationToken|authsecret|aws_access|aws_access_key_id|aws_bucket|aws_key|aws_secret|aws_secret_key|aws_token|AWSSecretKey|b2_app_key|bashrc|bintray_apikey|bintray_gpg_password|bintray_key|bintraykey|bluemix_api_key|bluemix_pass|browserstack_access_key|bucket_password|bucketeer_aws_access_key_id|bucketeer_aws_secret_access_key|built_branch_deploy_key|bx_password|cache_driver|cache_s3_secret_key|cattle_access_key|cattle_secret_key|certificate_password|ci_deploy_password|client_secret|client_zpk_secret_key|clojars_password|cloud_api_key|cloud_watch_aws_access_key|cloudant_password|cloudflare_api_key|cloudflare_auth_key|cloudinary_api_secret|cloudinary_name|codecov_token|conn.login|connectionstring|consumer_key|consumer_secret|cypress_record_key|database_password|database_schema_test|datadog_api_key|datadog_app_key|db_password|db_server|db_username|dbpasswd|dbpassword|dbuser|deploy_password|digitalocean_ssh_key_body|digitalocean_ssh_key_ids|docker_hub_password|docker_key|docker_pass|docker_passwd|docker_password|dockerhub_password|dockerhubpassword|dot-files|dotfiles|droplet_travis_password|dynamoaccesskeyid|dynamosecretaccesskey|elastica_host|elastica_port|elasticsearch_password|encryption_key|encryption_password|env.heroku_api_key|env.sonatype_password|eureka.awssecretkey)[a-z0-9_.\-,]{0,25})[:<>=|]{1,2}.{0,5}['"]([0-9a-zA-Z\-_=]{8,64})['"]`,
+			`(?i)(?:(?:access_key|access_token|admin_pass|admin_user|algolia_admin_key|x-algolia-api-key|algolia_api_key|alias_pass|alicloud_access_key|ansible_vault_password|aos_key|api_key|api_key_secret|api_key_sid|api_secret|apidocs|apikey|apiSecret|app_debug|app_id|app_key|app_log_level|app_secret|appkey|appkeysecret|application_key|appsecret|appspot|auth_token|authorizationToken|authsecret|aws_access|aws_access_key_id|aws_bucket|aws_key|aws_secret|aws_secret_key|aws_token|AWSSecretKey|b2_app_key|bashrc|bintray_apikey|bintray_gpg_password|bintray_key|bintraykey|bluemix_api_key|bluemix_pass|browserstack_access_key|bucket_password|bucketeer_aws_access_key_id|bucketeer_aws_secret_access_key|built_branch_deploy_key|bx_password|cache_driver|cache_s3_secret_key|cattle_access_key|cattle_secret_key|certificate_password|ci_deploy_password|client_secret|client_zpk_secret_key|clojars_password|cloud_api_key|cloud_watch_aws_access_key|cloudant_password|cloudflare_api_key|cloudflare_auth_key|cloudinary_api_secret|cloudinary_name|codecov_token|conn.login|connectionstring|consumer_key|consumer_secret|cypress_record_key|database_password|database_schema_test|datadog_api_key|datadog_app_key|db_password|db_server|db_username|dbpasswd|dbpassword|dbuser|deploy_password|digitalocean_ssh_key_body|digitalocean_ssh_key_ids|docker_hub_password|docker_key|docker_pass|docker_passwd|docker_password|dockerhub_password|dockerhubpassword|dot-files|dotfiles|droplet_travis_password|dynamoaccesskeyid|dynamosecretaccesskey|elastica_host|elastica_port|elasticsearch_password|encryption_key|encryption_password|env.heroku_api_key|env.sonatype_password|eureka.awssecretkey|discovery_iam_apikey|appPassword|slackToken|slack_signing_secret|watson_assistant_api_key|pythonPassword)[a-z0-9_.\-,]{0,25})[:<>=|]{1,2}.{0,5}['"]([0-9a-zA-Z\-_=]{8,64})['"]`,
 			[]string{},
 			"?",
 		},
@@ -322,7 +266,6 @@ func GetSecretRegexes() []Secret {
 				`session[_-]?(key|token|secret)|` +
 				`consumer[_-]?(key|token|secret)|` +
 				`public[_-]?(key|token|secret)|` +
-				`client[_-]?(id|token|key)|` +
 				`ssh[_-]?key|` +
 				`encrypt[_-]?(secret|key)|` +
 				`decrypt[_-]?(secret|key)|` +
