@@ -7,6 +7,7 @@ import (
 	"github.com/projectdiscovery/gologger"
 )
 
+// EndpointsMatch extracts endpoints from byte data based on regex patterns
 func EndpointsMatch(Body []byte, FilterExtensions []string) []string {
 
 	// Regex from https://github.com/GerbenJavado/LinkFinder/blob/master/linkfinder.py#L29
