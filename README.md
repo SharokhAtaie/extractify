@@ -13,7 +13,6 @@ Extractify is a powerful tool for extracting endpoints, URLs, API routes, and se
   - Extract secrets and credentials from source code
 - **Custom Secret Patterns**: Define your own secret detection patterns
 - **Flexible Output**: Save results to file or display in terminal
-- **Filter Support**: Exclude specific file types from scanning
 
 ## Installation
 
