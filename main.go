@@ -40,7 +40,7 @@ type options struct {
 }
 
 // Version of the current build
-const VERSION = "1.1.0"
+const VERSION = "1.2.0"
 
 func main() {
 	opt := &options{}
