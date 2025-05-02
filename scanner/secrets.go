@@ -92,13 +92,6 @@ func GetSecretRegexes() []Secret {
 			"?",
 		},
 		{
-			"GitHub OAuth App Secret",
-			"GitHub OAuth App Secret",
-			`[a-f0-9]{40}`,
-			[]string{},
-			"?",
-		},
-		{
 			"Github Refresh Token",
 			"Github Refresh Token",
 			`ghr_.{76}`,
@@ -327,13 +320,6 @@ func GetSecretRegexes() []Secret {
 			"Jenkins Crumb Token",
 			"Jenkins Crumb Token",
 			`Jenkins-Crumb:\s*[a-z0-9]{30,}`,
-			[]string{},
-			"?",
-		},
-		{
-			"Azure DevOps Token",
-			"Azure DevOps Token",
-			`[a-z0-9]{52}`,
 			[]string{},
 			"?",
 		},
