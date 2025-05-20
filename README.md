@@ -1,6 +1,6 @@
 # Extractify
 
-Extractify is a powerful tool for extracting endpoints, URLs, API routes, and secrets from various sources. It can process URLs, files, or directories, making it perfect for security researchers, penetration testers, and developers.
+Extractify is a powerful tool for extracting endpoints, URLs and secrets from various sources. It can process URLs, files, or directories, making it perfect for security researchers, penetration testers, and developers.
 
 ## Features
 
@@ -9,11 +9,9 @@ Extractify is a powerful tool for extracting endpoints, URLs, API routes, and se
 - **Multiple Extract Types**:
   - Extract endpoints (paths within content)
   - Extract complete URLs
-  - Extract API routes and endpoints
   - Extract secrets and credentials from source code
 - **Custom Secret Patterns**: Define your own secret detection patterns
 - **Flexible Output**: Save results to file or display in terminal
-- **Filter Support**: Exclude specific file types from scanning
 
 ## Installation
 
@@ -41,17 +39,18 @@ Extract Types:
 Other Options:
 	-header,          	-H     Set custom header (e.g., 'Authorization: Bearer token')
 	-concurrent,      	-c     Number of concurrent workers [default: 10]
-	-timeout,         	-t     Timeout in seconds for HTTP requests [default: 10]
+	-timeout,         	-t     Timeout in seconds for HTTP requests [default: 20]
 	-output,          	-o     Output file to write results
 	-patterns,        	-p     Custom regex patterns file
 	-version,         	-V     Show version information
 	-color,           	-C     Enable colorized output
-	-filter-extension, -fe   Filter extensions in results (comma-separated) [default: css,svg,png,jpg,jpeg]
+	-filter-extension, -fe   Filter extensions in endpoint results (comma-separated)
 
 Examples:
 	extractify -u https://example.com
 	extractify -l urls.txt -es -o results.txt
 	extractify -f javascript_files/ -ea
+	extractify -f file.js -ea
 	cat urls.txt | extractify -ea -c 20
 ```
 
@@ -61,14 +60,14 @@ Examples:
 # Scan a URL
 extractify -u https://example.com
 
+# Scan from a list of URLs
+extractify -l urls.txt
+
 # Scan a file
 extractify -f /path/to/file.js
 
 # Scan a directory recursively
 extractify -f /path/to/directory
-
-# Scan from a list of URLs
-extractify -l urls.txt
 
 # Pipe URLs from another command
 cat urls.txt | extractify
@@ -98,9 +97,6 @@ extractify -u https://example.com -H "Authorization: Bearer token"
 
 # Set concurrency level (10 default)
 extractify -l urls.txt -c 20
-
-# Set request timeout (10 seconds default)
-extractify -u https://example.com -t 15
 
 # Save output to file
 extractify -u https://example.com -o results.txt

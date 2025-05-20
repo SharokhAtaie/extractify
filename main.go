@@ -64,12 +64,12 @@ func main() {
 	flagSet.CreateGroup("Others", "Others",
 		flagSet.StringVarP(&opt.header, "header", "H", "", "Set custom header"),
 		flagSet.IntVarP(&opt.concurrent, "concurrent", "c", 10, "Number of concurrent workers"),
-		flagSet.IntVarP(&opt.timeout, "timeout", "t", 10, "Timeout in seconds for HTTP requests"),
+		flagSet.IntVarP(&opt.timeout, "timeout", "t", 20, "Timeout in seconds for HTTP requests"),
 		flagSet.StringVarP(&opt.output, "output", "o", "", "Output file to write results"),
 		flagSet.StringVarP(&opt.customPatterns, "patterns", "p", "", "Custom regex patterns file"),
 		flagSet.BoolVarP(&opt.version, "version", "V", false, "Show version information"),
 		flagSet.BoolVarP(&opt.color, "color", "C", false, "Colorize output"),
-		flagSet.StringSliceVarP(&opt.filterExt, "filter-extension", "fe", []string{"css", "svg", "png", "jpg", "jpeg"}, "List of extensions svg,png (comma-separated)", goflags.FileCommaSeparatedStringSliceOptions),
+		flagSet.StringSliceVarP(&opt.filterExt, "filter-extension", "fe", []string{}, "List of extensions svg,png (comma-separated)", goflags.FileCommaSeparatedStringSliceOptions),
 	)
 
 	if err := flagSet.Parse(); err != nil {
@@ -278,10 +278,9 @@ func processSingleFile(filePath string, opt *options, results chan<- ScanResult)
 
 // Process a directory recursively
 func processDirectory(dirPath string, opt *options, results chan<- ScanResult) {
-	var spin *spinner.Spinner
 
-	spin = spinner.New(spinner.CharSets[9], 100*time.Millisecond)
-	spinnerSuffix := " Processing directory: " + dirPath
+	spin := spinner.New(spinner.CharSets[9], 100*time.Millisecond)
+	spinnerSuffix := " Processing directory: " + dirPath + "\n\n"
 	spin.Suffix = spinnerSuffix
 
 	// Only enable colors if the color flag is set
@@ -575,12 +574,12 @@ func printUsage() {
 	gologger.Print().Msgf("\nOther Options:")
 	gologger.Print().Msgf("\t-header,          	-H     Set custom header (e.g., 'Authorization: Bearer token')")
 	gologger.Print().Msgf("\t-concurrent,      	-c     Number of concurrent workers [default: 10]")
-	gologger.Print().Msgf("\t-timeout,         	-t     Timeout in seconds for HTTP requests [default: 10]")
+	gologger.Print().Msgf("\t-timeout,         	-t     Timeout in seconds for HTTP requests [default: 20]")
 	gologger.Print().Msgf("\t-output,          	-o     Output file to write results")
 	gologger.Print().Msgf("\t-patterns,        	-p     Custom regex patterns file")
 	gologger.Print().Msgf("\t-version,         	-V     Show version information")
 	gologger.Print().Msgf("\t-color,           	-C     Enable colorized output")
-	gologger.Print().Msgf("\t-filter-extension, -fe   Filter extensions in results (comma-separated) [default: css,svg,png,jpg,jpeg]")
+	gologger.Print().Msgf("\t-filter-extension, -fe   Filter extensions in endpoint results (comma-separated)")
 
 	gologger.Print().Msgf("\nExamples:")
 	gologger.Print().Msgf("\textractify -u https://example.com")
