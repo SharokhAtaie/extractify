@@ -41,9 +41,9 @@ func EndpointsMatch(Body []byte, FilterExtensions []string) []string {
 
 	// Exclude pure MIME type matches from results
 	excludeMimeTypeRule := strings.Join([]string{
-		`MM/YY|DD/MM/YYYY|N/A|`,
+		`MM/YY|DD/MM/YYYY|N/A|next/router|TLS/SSL|`,
 		`application/x-www-form-urlencoded|multipart/form-data|multipart/mixed|multipart/alternative|`,
-		`text/css|text/plain|text/html|text/xml|text/csv|text/markdown|text/babel|text/tsx|text/jsx|text/x-yaml|text/yaml|`,
+		`text/partytown|text/x-component|text/css|text/plain|text/html|text/xml|text/csv|text/markdown|text/babel|text/tsx|text/jsx|text/x-yaml|text/yaml|`,
 		`image/jpeg|image/jpg|image/png|image/svg+xml|image/gif|image/tiff|image/webp|image/bmp|image/x-icon|image/vnd.microsoft.icon|image/heic|image/heif|`,
 		`audio/mpeg|audio/wav|audio/webm|audio/aac|audio/ogg|audio/flac|`,
 		`video/mp4|video/mpeg|video/webm|video/ogg|video/mp2t|video/x-msvideo|video/quicktime|`,

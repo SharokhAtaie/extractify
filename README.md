@@ -40,15 +40,15 @@ Other Options:
 	-header,          	-H     Set custom header (e.g., 'Authorization: Bearer token')
 	-concurrent,      	-c     Number of concurrent workers [default: 10]
 	-timeout,         	-t     Timeout in seconds for HTTP requests [default: 20]
-	-output,          	-o     Output file to write results
+	-output,          	-o     Output file to write results (json)
 	-patterns,        	-p     Custom regex patterns file
 	-version,         	-V     Show version information
-	-color,           	-C     Enable colorized output
-	-filter-extension, -fe   Filter extensions in endpoint results (comma-separated)
+	-no-color,          -nc    Disable colorized output
+	-filter-extension,  -fe    Filter extensions in endpoint results (comma-separated)
 
 Examples:
 	extractify -u https://example.com
-	extractify -l urls.txt -es -o results.txt
+	extractify -l urls.txt -es -o results.json
 	extractify -f javascript_files/ -ea
 	extractify -f file.js -ea
 	cat urls.txt | extractify -ea -c 20
@@ -99,7 +99,7 @@ extractify -u https://example.com -H "Authorization: Bearer token"
 extractify -l urls.txt -c 20
 
 # Save output to file
-extractify -u https://example.com -o results.txt
+extractify -u https://example.com -o results.json
 ```
 
 ## Custom Secret Patterns
@@ -129,7 +129,7 @@ extractify -u https://example.com -p patterns.json
 Extract all information types from multiple URLs:
 
 ```bash
-extractify -l urls.txt -ea -o results.txt
+extractify -l urls.txt -ea -o results.json
 ```
 
 ## License

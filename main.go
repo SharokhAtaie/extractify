@@ -2,6 +2,7 @@ package main
 
 import (
 	"crypto/tls"
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/fs"
@@ -36,11 +37,11 @@ type options struct {
 	customPatterns string
 	filterExt      goflags.StringSlice
 	version        bool
-	color          bool
+	noColor        bool
 }
 
 // Version of the current build
-const VERSION = "1.3.0"
+const VERSION = "1.4.0"
 
 func main() {
 	opt := &options{}
@@ -68,7 +69,7 @@ func main() {
 		flagSet.StringVarP(&opt.output, "output", "o", "", "Output file to write results"),
 		flagSet.StringVarP(&opt.customPatterns, "patterns", "p", "", "Custom regex patterns file"),
 		flagSet.BoolVarP(&opt.version, "version", "V", false, "Show version information"),
-		flagSet.BoolVarP(&opt.color, "color", "C", false, "Colorize output"),
+		flagSet.BoolVarP(&opt.noColor, "no-color", "nc", false, "Disable colorized output"),
 		flagSet.StringSliceVarP(&opt.filterExt, "filter-extension", "fe", []string{}, "List of extensions svg,png (comma-separated)", goflags.FileCommaSeparatedStringSliceOptions),
 	)
 
@@ -184,7 +185,7 @@ func main() {
 	<-collectorDone
 
 	// Print completion message
-	if opt.color {
+	if !opt.noColor {
 		if opt.output != "" {
 			gologger.Info().Msgf("Results saved to %s", opt.output)
 		}
@@ -232,7 +233,7 @@ func processSingleFile(filePath string, opt *options, results chan<- ScanResult)
 	// Check if the path is a directory
 	fileInfo, err := os.Stat(filePath)
 	if err != nil {
-		if opt.color {
+		if !opt.noColor {
 			gologger.Error().Msgf("Failed to read file %v: %v", filePath, err)
 		} else {
 			fmt.Printf("[ERR] Failed to read file %v: %v\n", filePath, err)
@@ -247,7 +248,7 @@ func processSingleFile(filePath string, opt *options, results chan<- ScanResult)
 	}
 
 	// Process single file
-	if opt.color {
+	if !opt.noColor {
 		gologger.Info().Msgf("Processing file: %s", filePath)
 	} else {
 		fmt.Printf("[INF] Processing file: %s\n", filePath)
@@ -255,7 +256,7 @@ func processSingleFile(filePath string, opt *options, results chan<- ScanResult)
 
 	data, err := os.ReadFile(filePath)
 	if err != nil {
-		if opt.color {
+		if !opt.noColor {
 			gologger.Error().Msgf("Failed to read file %v: %v", filePath, err)
 		} else {
 			fmt.Printf("[ERR] Failed to read file %v: %v\n", filePath, err)
@@ -283,8 +284,8 @@ func processDirectory(dirPath string, opt *options, results chan<- ScanResult) {
 	spinnerSuffix := " Processing directory: " + dirPath + "\n\n"
 	spin.Suffix = spinnerSuffix
 
-	// Only enable colors if the color flag is set
-	if !opt.color {
+	// Disable spinner colors when no-color is set
+	if opt.noColor {
 		spin.Color("reset") // Use default terminal color
 	}
 
@@ -298,7 +299,7 @@ func processDirectory(dirPath string, opt *options, results chan<- ScanResult) {
 		if !d.IsDir() {
 			data, err := os.ReadFile(path)
 			if err != nil {
-				if opt.color {
+				if !opt.noColor {
 					gologger.Error().Msgf("Failed to read file %v: %v", path, err)
 				} else {
 					fmt.Printf("[ERR] Failed to read file %v: %v\n", path, err)
@@ -322,7 +323,7 @@ func processDirectory(dirPath string, opt *options, results chan<- ScanResult) {
 	spin.Stop()
 
 	if err != nil {
-		if opt.color {
+		if !opt.noColor {
 			gologger.Error().Msgf("Error walking directory %v: %v", dirPath, err)
 		} else {
 			fmt.Printf("[ERR] Error walking directory %v: %v\n", dirPath, err)
@@ -332,9 +333,11 @@ func processDirectory(dirPath string, opt *options, results chan<- ScanResult) {
 
 // Collect and process results
 func collectResults(results <-chan ScanResult, outputFile *os.File, opt *options) {
+	var aggregated []ScanResult
+
 	for result := range results {
 		if result.Error != nil {
-			if opt.color {
+			if !opt.noColor {
 				gologger.Error().Msgf("Error processing %s: %v", result.Source, result.Error)
 			} else {
 				fmt.Printf("[ERR] Error processing %s: %v\n", result.Source, result.Error)
@@ -342,8 +345,55 @@ func collectResults(results <-chan ScanResult, outputFile *os.File, opt *options
 			continue
 		}
 
+		// Always print to console as before. Avoid writing plaintext to file when JSON output is enabled.
+		var outForHandlers *os.File
+		if outputFile == nil {
+			outForHandlers = nil
+		} else {
+			outForHandlers = nil
+		}
 		handleResults(opt.endpoint, opt.urls, opt.secret, opt.all,
-			result.Secrets, result.URLs, result.Endpoints, result.Source, outputFile, opt.color)
+			result.Secrets, result.URLs, result.Endpoints, result.Source, outForHandlers, !opt.noColor)
+
+		// If output is requested, aggregate for JSON output
+		if outputFile != nil {
+			aggregated = append(aggregated, result)
+		}
+	}
+
+	// If output file is provided, write aggregated JSON
+	if outputFile != nil {
+		// Redact secret details: include only the matched secret values
+		type jsonResult struct {
+			Source    string   `json:"source"`
+			URLs      []string `json:"urls"`
+			Endpoints []string `json:"endpoints"`
+			Secrets   []string `json:"secrets"`
+		}
+
+		var filtered []jsonResult
+		for _, r := range aggregated {
+			var secretMatches []string
+			for _, s := range r.Secrets {
+				secretMatches = append(secretMatches, s.Match)
+			}
+			filtered = append(filtered, jsonResult{
+				Source:    r.Source,
+				URLs:      r.URLs,
+				Endpoints: r.Endpoints,
+				Secrets:   secretMatches,
+			})
+		}
+
+		enc := json.NewEncoder(outputFile)
+		enc.SetIndent("", "  ")
+		if err := enc.Encode(filtered); err != nil {
+			if !opt.noColor {
+				gologger.Error().Msgf("failed to write json results: %v", err)
+			} else {
+				fmt.Printf("[ERR] failed to write json results: %v\n", err)
+			}
+		}
 	}
 }
 
