@@ -20,28 +20,31 @@ func EndpointsMatch(Body []byte, FilterExtensions []string) []string {
 		"|",
 
 		// 2) Relative paths (optionally templated with ${...}): /, ../, ./ followed by a path-like segment
-		"((?:\\$\\{[^\\}]+\\})?(?:\\/|\\.\\.\\/|\\.\\/)[^\\s\"'><,;| *()(%%$^\\/\\\\\\[\\]][^\\s\"'><,;|()]{1,})",
+		// allow optional trailing slash and optional query part starting with ? (query may contain = & etc. until a quote/space)
+		"((?:\\$\\{[^\\}]+\\})?(?:\\/|\\.\\.\\/|\\.\\/)[^\\s\"'><,;| *()(%%$^\\/\\$begin:math:display$\\$end:math:display$][^\\s\"'><,;|()]{1,}(?:\\/)?(?:\\?[^\\s\"']*)?)",
 		"|",
 
 		// 3) File with extension and optional query or trailing slash segment
-		"([a-zA-Z0-9_\\-\\/]{1,}\\/[a-zA-Z0-9_\\-\\/]{1,}\\.(?:[a-zA-Z]{1,4}|action)(?:[\\?|\\/][^\\s|^\"|']{0,}|))",
+		// allow a trailing slash or a query after the extension
+		"([a-zA-Z0-9_\\-\\/]{1,}\\/[a-zA-Z0-9_\\-\\/]{1,}\\.(?:[a-zA-Z]{1,4}|action)(?:\\/|\\?[^\\s\"']*)?)",
 		"|",
 
 		// 4) Bare filenames with interesting extensions and optional query
-		"([a-zA-Z0-9_\\-]{1,}\\.(?:php|asp|aspx|cfm|pl|jsp|json|js|action|html|htm|bak|do|txt|xml|xls|xlsx|key|env|pem|git|ovpn|log|secret|secrets|access|dat|db|sql|pwd|passwd|gitignore|properties|dtd|conf|cfg|config|configs|apk|cgi|sh|py|java|rb|rs|go|yml|yaml|toml|php4|zip|tar|tar.bz2|tar.gz|rar|7z|gz|dochtml|doc|docx|csv|odt|ts|phtml|php5|pdf)(?:\\?[^\\s|^\"|^']{0,}|))",
+		"([a-zA-Z0-9_\\-]{1,}\\.(?:php|asp|aspx|cfm|pl|jsp|json|js|action|html|htm|bak|do|txt|xml|xls|xlsx|key|env|pem|git|ovpn|log|secret|secrets|access|dat|db|sql|pwd|passwd|gitignore|properties|dtd|conf|cfg|config|configs|apk|cgi|sh|py|java|rb|rs|go|yml|yaml|toml|php4|zip|tar|tar.bz2|tar.gz|rar|7z|gz|dochtml|doc|docx|csv|odt|ts|phtml|php5|pdf)(?:\\?[^\\s\"']*)?)",
 		"|",
 
-		// 5) Path-like segments with optional query and/or hash
-		"((?:[a-zA-Z0-9_\\-]+\\/)+[a-zA-Z0-9_\\-]+(?:\\?[^\\s\"'#]*)?(?:#[^\\s\"']*)?)",
+		// 5) Path-like segments with optional trailing slash, optional query and/or hash
+		"((?:[a-zA-Z0-9_\\-]+\\/)+[a-zA-Z0-9_\\-]+(?:\\/)?(?:\\?[^\\s\"'#]*)?(?:#[^\\s\"']*)?)",
 
 		// Closing delimiter
 		")(?:[`\"'\\n\\r])",
 	}
+
 	regexPattern := strings.Join(parts, "")
 
 	// Exclude pure MIME type matches from results
 	excludeMimeTypeRule := strings.Join([]string{
-		`MM/YY|DD/MM/YYYY|N/A|next/router|TLS/SSL|`,
+		`MM/DD/YYYY|MM/YY|DD/MM/YYYY|N/A|next/router|TLS/SSL|`,
 		`application/x-www-form-urlencoded|multipart/form-data|multipart/mixed|multipart/alternative|`,
 		`text/partytown|text/x-component|text/css|text/plain|text/html|text/xml|text/csv|text/markdown|text/babel|text/tsx|text/jsx|text/x-yaml|text/yaml|`,
 		`image/jpeg|image/jpg|image/png|image/svg+xml|image/gif|image/tiff|image/webp|image/bmp|image/x-icon|image/vnd.microsoft.icon|image/heic|image/heif|`,
