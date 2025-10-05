@@ -16,12 +16,12 @@ func EndpointsMatch(Body []byte, FilterExtensions []string) []string {
 		"(?:[`\"'\\n\\r])(",
 
 		// 1) Absolute URLs (optionally templated with ${...}) including protocol or protocol-relative
-		"((?:\\$\\{[^\\}]+\\})?(?:[a-zA-Z]{1,10}:\\/\\/|\\/\\/)[^\\s\"'\\/]{1,}\\.[a-zA-Z]{2,}[^\\s\"']{0,})",
+		`((?:\$\{[^\}]+\})?(?:\/|\.\.\/|\.\/)[^\s\"'><,;| *()(%%$^\/\\\\$begin:math:display$$end:math:display$][^\s\"'><,;|()]{1,}(?:\/)?(?:\?[^\\s\"'\$\+\{]*)?)`,
 		"|",
 
 		// 2) Relative paths (optionally templated with ${...}): /, ../, ./ followed by a path-like segment
 		// allow optional trailing slash and optional query part starting with ? (query may contain = & etc. until a quote/space)
-		"((?:\\$\\{[^\\}]+\\})?(?:\\/|\\.\\.\\/|\\.\\/)[^\\s\"'><,;| *()(%%$^\\/\\$begin:math:display$\\$end:math:display$][^\\s\"'><,;|()]{1,}(?:\\/)?(?:\\?[^\\s\"']*)?)",
+		"((?:\\$\\{[^\\}]+\\})?(?:\\/|\\.\\.\\/|\\.\\/)[^\\s\"'><,;| *()(%%$^\\/\\\\\\[\\]][^\\s\"'><,;|()]{1,})",
 		"|",
 
 		// 3) File with extension and optional query or trailing slash segment
