@@ -10,34 +10,42 @@ import (
 // EndpointsMatch extracts endpoints from byte data based on regex patterns
 func EndpointsMatch(Body []byte, FilterExtensions []string) []string {
 
-	// Regex adapted from LinkFinder with added support for ${...} templates and readable structure
+	// Comprehensive regex pattern - captures URLs, endpoints, and file paths
 	parts := []string{
-		// Opening delimiter (a quote/backtick or newline boundary), then start of main capture group
-		"(?:[`\"'\\n\\r])(",
-
-		// 1) Absolute URLs (optionally templated with ${...}) including protocol or protocol-relative
-		`((?:\$\{[^\}]+\})?(?:\/|\.\.\/|\.\/)[^\s\"'><,;| *()(%%$^\/\\\\$begin:math:display$$end:math:display$][^\s\"'><,;|()]{1,}(?:\/)?(?:\?[^\\s\"'\$\+\{]*)?)`,
-		"|",
-
-		// 2) Relative paths (optionally templated with ${...}): /, ../, ./ followed by a path-like segment
-		// allow optional trailing slash and optional query part starting with ? (query may contain = & etc. until a quote/space)
-		"((?:\\$\\{[^\\}]+\\})?(?:\\/|\\.\\.\\/|\\.\\/)[^\\s\"'><,;| *()(%%$^\\/\\\\\\[\\]][^\\s\"'><,;|()]{1,})",
-		"|",
-
-		// 3) File with extension and optional query or trailing slash segment
-		// allow a trailing slash or a query after the extension
-		"([a-zA-Z0-9_\\-\\/]{1,}\\/[a-zA-Z0-9_\\-\\/]{1,}\\.(?:[a-zA-Z]{1,4}|action)(?:\\/|\\?[^\\s\"']*)?)",
-		"|",
-
-		// 4) Bare filenames with interesting extensions and optional query
-		"([a-zA-Z0-9_\\-]{1,}\\.(?:php|asp|aspx|cfm|pl|jsp|json|js|action|html|htm|bak|do|txt|xml|xls|xlsx|key|env|pem|git|ovpn|log|secret|secrets|access|dat|db|sql|pwd|passwd|gitignore|properties|dtd|conf|cfg|config|configs|apk|cgi|sh|py|java|rb|rs|go|yml|yaml|toml|php4|zip|tar|tar.bz2|tar.gz|rar|7z|gz|dochtml|doc|docx|csv|odt|ts|phtml|php5|pdf)(?:\\?[^\\s\"']*)?)",
-		"|",
-
-		// 5) Path-like segments with optional trailing slash, optional query and/or hash
-		"((?:[a-zA-Z0-9_\\-]+\\/)+[a-zA-Z0-9_\\-]+(?:\\/)?(?:\\?[^\\s\"'#]*)?(?:#[^\\s\"']*)?)",
-
-		// Closing delimiter
-		")(?:[`\"'\\n\\r])",
+		// Opening context (quotes, whitespace, operators, start of line, etc.)
+		`(?:['` + "`" + `"]|[\s=:([\{,;]|^|:)`,
+		// Start main capture group
+		`(`,
+		
+		// 1) Full URLs with protocol (http, https, ftp, wss, etc.)
+		`[a-zA-Z][a-zA-Z0-9+.-]*://[^\s'` + "`" + `">;,)\]}\{<]+(?:\?[^\s'` + "`" + `">;,)\]}\{<]*)?(?:#[^\s'` + "`" + `">;,)\]}\{<]*)?`,
+		`|`,
+		
+		// 2) Absolute paths starting with / (including template variables)
+		`/(?:\$\{[^}]+\}|[a-zA-Z0-9_.-])[^\s'` + "`" + `">;,)\]}\{<]*`,
+		`|`,
+		
+		// 3) Relative paths starting with ./ or ../
+		`\.\.?/[^\s'` + "`" + `">;,)\]}\{<]+`,
+		`|`,
+		
+		// 4) API-like paths (word/word structure)
+		`[a-zA-Z0-9_-]+(?:/[a-zA-Z0-9_${}.-]+)+(?:\?[^\s'` + "`" + `">;,)\]}\{<]*)?(?:#[^\s'` + "`" + `">;,)\]}\{<]*)?`,
+		`|`,
+		
+		// 5) Files with interesting extensions
+		`[a-zA-Z0-9_-]+\.(?:php|asp|aspx|cfm|pl|jsp|json|js|action|html|htm|bak|do|txt|xml|xls|xlsx|key|env|pem|git|ovpn|log|secret|secrets|access|dat|db|sql|pwd|passwd|gitignore|properties|dtd|conf|cfg|config|configs|apk|cgi|sh|py|java|rb|rs|go|yml|yaml|toml|php4|zip|tar|gz|rar|7z|dochtml|doc|docx|csv|odt|ts|phtml|php5|pdf|vue|svelte|jsx|tsx|scss|sass|less|styl|wasm|dll|exe|bin|iso|dmg|pkg|deb|rpm|msi)(?:\?[^\s'` + "`" + `">;,)\]}\{<]*)?`,
+		`|`,
+		
+		// 6) Template literal paths with variables
+		`\$\{[^}]+\}/[^\s'` + "`" + `">;,)\]}\{<]*`,
+		`|`,
+		
+		// 7) Protocol-relative URLs
+		`//[a-zA-Z0-9.-]+(?:\.[a-zA-Z]{2,})?(?::[0-9]+)?(?:/[^\s'` + "`" + `">;,)\]}\{<]*)?`,
+		
+		// End capture group
+		`)`,
 	}
 
 	regexPattern := strings.Join(parts, "")
@@ -68,16 +76,20 @@ func EndpointsMatch(Body []byte, FilterExtensions []string) []string {
 		gologger.Fatal().Msgf("Error compiling regex: %s", err)
 	}
 
-	matches := re.FindAllString(string(Body), -1)
+	matches := re.FindAllStringSubmatch(string(Body), -1)
 
 	var cleanedMatches []string
 	seenLines := make(map[string]bool)
 
 	for _, match := range matches {
-		// Ensure the length of match is sufficient
-		if len(match) > 2 {
-			// Extract the inner value without surrounding delimiter
-			cleanedMatch := match[1 : len(match)-1]
+		// The new regex captures the URL/path in match[1]
+		if len(match) > 1 {
+			cleanedMatch := match[1]
+
+			// Skip empty matches
+			if cleanedMatch == "" {
+				continue
+			}
 
 			// Skip pure MIME type strings
 			if excludeMimeTypeRe.MatchString(cleanedMatch) {
