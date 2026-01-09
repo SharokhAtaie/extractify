@@ -10,10 +10,10 @@ import (
 // EndpointsMatch extracts endpoints from byte data based on regex patterns
 func EndpointsMatch(Body []byte, FilterExtensions []string) []string {
 
-	// Comprehensive regex pattern - captures URLs, endpoints, and file paths
+	// Comprehensive regex pattern - captures URLs, endpoints, and file paths ONLY when properly quoted or assigned
 	parts := []string{
-		// Opening context (quotes, whitespace, operators, start of line, etc.)
-		`(?:['` + "`" + `"]|[\s=:([\{,;]|^|:)`,
+		// Opening context - must be explicit quotes, assignments, or array/object literals
+		`(?:['` + "`" + `"]\s*|[=:]\s*['` + "`" + `"]|[=:]\s+|[,\[\{]\s*['` + "`" + `"]?)`,
 		// Start main capture group
 		`(`,
 		
@@ -29,11 +29,11 @@ func EndpointsMatch(Body []byte, FilterExtensions []string) []string {
 		`\.\.?/[^\s'` + "`" + `">;,)\]}\{<]+`,
 		`|`,
 		
-		// 4) API-like paths (word/word structure)
+		// 4) API-like paths (word/word structure) - only when quoted or after assignment
 		`[a-zA-Z0-9_-]+(?:/[a-zA-Z0-9_${}.-]+)+(?:\?[^\s'` + "`" + `">;,)\]}\{<]*)?(?:#[^\s'` + "`" + `">;,)\]}\{<]*)?`,
 		`|`,
 		
-		// 5) Files with interesting extensions
+		// 5) Files with interesting extensions - only when quoted or after assignment
 		`[a-zA-Z0-9_-]+\.(?:php|asp|aspx|cfm|pl|jsp|json|js|action|html|htm|bak|do|txt|xml|xls|xlsx|key|env|pem|git|ovpn|log|secret|secrets|access|dat|db|sql|pwd|passwd|gitignore|properties|dtd|conf|cfg|config|configs|apk|cgi|sh|py|java|rb|rs|go|yml|yaml|toml|php4|zip|tar|gz|rar|7z|dochtml|doc|docx|csv|odt|ts|phtml|php5|pdf|vue|svelte|jsx|tsx|scss|sass|less|styl|wasm|dll|exe|bin|iso|dmg|pkg|deb|rpm|msi)(?:\?[^\s'` + "`" + `">;,)\]}\{<]*)?`,
 		`|`,
 		
