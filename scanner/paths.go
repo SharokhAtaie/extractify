@@ -10,40 +10,41 @@ import (
 // EndpointsMatch extracts endpoints from byte data based on regex patterns
 func EndpointsMatch(Body []byte, FilterExtensions []string) []string {
 
-	// Comprehensive regex pattern - captures URLs, endpoints, and file paths ONLY when properly quoted or assigned
+	// Comprehensive regex pattern - captures URLs, endpoints, and file paths ONLY when inside quotes
 	parts := []string{
-		// Opening context - must be explicit quotes, assignments, or array/object literals
-		`(?:['` + "`" + `"]\s*|[=:]\s*['` + "`" + `"]|[=:]\s+|[,\[\{]\s*['` + "`" + `"]?)`,
+		// Opening context - path must be inside a quoted string (after ' " or `)
+		`(?:['` + "`" + `"]\s*|[=:]\s*['` + "`" + `"]|[,\[\{]\s*['` + "`" + `"])`,
 		// Start main capture group
 		`(`,
-		
+
 		// 1) Full URLs with protocol (http, https, ftp, wss, etc.)
-		`[a-zA-Z][a-zA-Z0-9+.-]*://[^\s'` + "`" + `">;,)\]}\{<]+(?:\?[^\s'` + "`" + `">;,)\]}\{<]*)?(?:#[^\s'` + "`" + `">;,)\]}\{<]*)?`,
+		`[a-zA-Z][a-zA-Z0-9+.-]*://[^'` + "`" + `"]+(?:\?[^'` + "`" + `"]*)?(?:#[^'` + "`" + `"]*)?`,
 		`|`,
-		
+
 		// 2) Absolute paths starting with / (including template variables)
-		`/(?:\$\{[^}]+\}|[a-zA-Z0-9_.-])[^\s'` + "`" + `">;,)\]}\{<]*`,
+		`/(?:\$\{[^}]+\}|[a-zA-Z0-9_.-])[^'` + "`" + `"]*`,
 		`|`,
-		
+
 		// 3) Relative paths starting with ./ or ../
-		`\.\.?/[^\s'` + "`" + `">;,)\]}\{<]+`,
+		`\.\.?/[^'` + "`" + `"]+`,
 		`|`,
-		
+
 		// 4) API-like paths (word/word structure) - only when quoted or after assignment
-		`[a-zA-Z0-9_-]+(?:/[a-zA-Z0-9_${}.-]+)+(?:\?[^\s'` + "`" + `">;,)\]}\{<]*)?(?:#[^\s'` + "`" + `">;,)\]}\{<]*)?`,
+		`[a-zA-Z0-9_-]+(?:/[a-zA-Z0-9_${}.-]+)+(?:\?[^'` + "`" + `"]*)?(?:#[^'` + "`" + `"]*)?`,
 		`|`,
-		
+
 		// 5) Files with interesting extensions - only when quoted or after assignment
-		`[a-zA-Z0-9_-]+\.(?:php|asp|aspx|cfm|pl|jsp|json|js|action|html|htm|bak|do|txt|xml|xls|xlsx|key|env|pem|git|ovpn|log|secret|secrets|access|dat|db|sql|pwd|passwd|gitignore|properties|dtd|conf|cfg|config|configs|apk|cgi|sh|py|java|rb|rs|go|yml|yaml|toml|php4|zip|tar|gz|rar|7z|dochtml|doc|docx|csv|odt|ts|phtml|php5|pdf|vue|svelte|jsx|tsx|scss|sass|less|styl|wasm|dll|exe|bin|iso|dmg|pkg|deb|rpm|msi)(?:\?[^\s'` + "`" + `">;,)\]}\{<]*)?`,
+		// \b after extension ensures we don't match obj.access when the full identifier is obj.accessToken (RE2 has no lookahead)
+		`[a-zA-Z0-9_-]+\.(?:php|asp|aspx|cfm|pl|jsp|json|js|action|html|htm|bak|do|txt|xml|xls|xlsx|key|env|pem|git|ovpn|log|secret|secrets|access|dat|db|sql|pwd|passwd|gitignore|properties|dtd|conf|cfg|config|configs|apk|cgi|sh|py|java|rb|rs|go|yml|yaml|toml|php4|zip|tar|gz|rar|7z|dochtml|doc|docx|csv|odt|ts|phtml|php5|pdf|vue|svelte|jsx|tsx|scss|sass|less|styl|wasm|dll|exe|bin|iso|dmg|pkg|deb|rpm|msi)\b(?:\?[^'` + "`" + `"]*)?`,
 		`|`,
-		
+
 		// 6) Template literal paths with variables
-		`\$\{[^}]+\}/[^\s'` + "`" + `">;,)\]}\{<]*`,
+		`\$\{[^}]+\}/[^'` + "`" + `"]*`,
 		`|`,
-		
+
 		// 7) Protocol-relative URLs
-		`//[a-zA-Z0-9.-]+(?:\.[a-zA-Z]{2,})?(?::[0-9]+)?(?:/[^\s'` + "`" + `">;,)\]}\{<]*)?`,
-		
+		`//[a-zA-Z0-9.-]+(?:\.[a-zA-Z]{2,})?(?::[0-9]+)?(?:/[^'` + "`" + `"]*)?`,
+
 		// End capture group
 		`)`,
 	}

@@ -70,7 +70,7 @@ func main() {
 		flagSet.StringVarP(&opt.customPatterns, "patterns", "p", "", "Custom regex patterns file"),
 		flagSet.BoolVarP(&opt.version, "version", "V", false, "Show version information"),
 		flagSet.BoolVarP(&opt.noColor, "no-color", "nc", false, "Disable colorized output"),
-		flagSet.StringSliceVarP(&opt.filterExt, "filter-extension", "fe", []string{}, "List of extensions svg,png (comma-separated)", goflags.FileCommaSeparatedStringSliceOptions),
+		flagSet.StringSliceVarP(&opt.filterExt, "filter-extension", "fe", []string{"woff2"}, "List of extensions svg,png (comma-separated)", goflags.FileCommaSeparatedStringSliceOptions),
 	)
 
 	if err := flagSet.Parse(); err != nil {
