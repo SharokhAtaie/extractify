@@ -27,6 +27,7 @@ type options struct {
 	url            string
 	list           string
 	output         string
+	json           bool
 	endpoint       bool
 	secret         bool
 	all            bool
@@ -38,10 +39,15 @@ type options struct {
 	filterExt      goflags.StringSlice
 	version        bool
 	noColor        bool
+	// extract* are resolved after parsing: which flows to run (see resolveExtractModes). Combinations allowed.
+	extractEndpoints bool
+	extractURLs      bool
+	extractSecrets   bool
+	dedup            bool
 }
 
 // Version of the current build
-const VERSION = "1.4.0"
+const VERSION = "1.5.0"
 
 func main() {
 	opt := &options{}
@@ -67,15 +73,19 @@ func main() {
 		flagSet.IntVarP(&opt.concurrent, "concurrent", "c", 10, "Number of concurrent workers"),
 		flagSet.IntVarP(&opt.timeout, "timeout", "t", 20, "Timeout in seconds for HTTP requests"),
 		flagSet.StringVarP(&opt.output, "output", "o", "", "Output file to write results"),
+		flagSet.BoolVarP(&opt.json, "json", "j", false, "Print JSON to stdout when -o is omitted; with -o, write JSON only (no human-readable console output)"),
 		flagSet.StringVarP(&opt.customPatterns, "patterns", "p", "", "Custom regex patterns file"),
 		flagSet.BoolVarP(&opt.version, "version", "V", false, "Show version information"),
 		flagSet.BoolVarP(&opt.noColor, "no-color", "nc", false, "Disable colorized output"),
+		flagSet.BoolVar(&opt.dedup, "dedup", false, "Drop duplicate URLs, endpoints, and secret matches across all sources (first occurrence wins)"),
 		flagSet.StringSliceVarP(&opt.filterExt, "filter-extension", "fe", []string{"woff2"}, "List of extensions svg,png (comma-separated)", goflags.FileCommaSeparatedStringSliceOptions),
 	)
 
 	if err := flagSet.Parse(); err != nil {
 		gologger.Fatal().Msgf("Could not parse flags: %s\n", err)
 	}
+
+	resolveExtractModes(opt)
 
 	// Show version and exit if -V is used
 	if opt.version {
@@ -105,9 +115,12 @@ func main() {
 		defer outputFile.Close()
 	}
 
+	humanConsole := opt.output == "" && !opt.json
+	writeJSON := opt.output != "" || opt.json
+
 	collectorDone := make(chan bool)
 	go func() {
-		collectResults(resultsChan, outputFile, opt)
+		collectResults(resultsChan, outputFile, opt, humanConsole, writeJSON)
 		collectorDone <- true
 	}()
 
@@ -185,15 +198,33 @@ func main() {
 	<-collectorDone
 
 	// Print completion message
-	if !opt.noColor {
-		if opt.output != "" {
+	if opt.output != "" {
+		if !opt.noColor {
 			gologger.Info().Msgf("Results saved to %s", opt.output)
-		}
-	} else {
-		if opt.output != "" {
+		} else {
 			fmt.Printf("[INF] Results saved to %s\n", opt.output)
 		}
 	}
+}
+
+// resolveExtractModes sets opt.extract* from flags: -ea runs all; with no -ee/-eu/-es runs all;
+// any combination of -ee/-eu/-es enables those flows together (e.g. -ee -es → endpoints + secrets).
+func resolveExtractModes(opt *options) {
+	if opt.all {
+		opt.extractEndpoints = true
+		opt.extractURLs = true
+		opt.extractSecrets = true
+		return
+	}
+	if !opt.endpoint && !opt.urls && !opt.secret {
+		opt.extractEndpoints = true
+		opt.extractURLs = true
+		opt.extractSecrets = true
+		return
+	}
+	opt.extractEndpoints = opt.endpoint
+	opt.extractURLs = opt.urls
+	opt.extractSecrets = opt.secret
 }
 
 // ScanResult represents a result from scanning
@@ -219,7 +250,7 @@ func worker(jobs <-chan string, results chan<- ScanResult, wg *sync.WaitGroup, o
 			continue
 		}
 
-		secrets, urls, endpoints := run(data, url, opt.filterExt, opt.customPatterns)
+		secrets, urls, endpoints := run(data, url, opt.filterExt, opt.customPatterns, opt.extractSecrets, opt.extractURLs, opt.extractEndpoints)
 		result.Secrets = secrets
 		result.URLs = urls
 		result.Endpoints = endpoints
@@ -264,7 +295,7 @@ func processSingleFile(filePath string, opt *options, results chan<- ScanResult)
 		return
 	}
 
-	secrets, urls, endpoints := run(data, filePath, opt.filterExt, opt.customPatterns)
+	secrets, urls, endpoints := run(data, filePath, opt.filterExt, opt.customPatterns, opt.extractSecrets, opt.extractURLs, opt.extractEndpoints)
 
 	results <- ScanResult{
 		Source:    filePath,
@@ -307,7 +338,7 @@ func processDirectory(dirPath string, opt *options, results chan<- ScanResult) {
 				return nil
 			}
 
-			secrets, urls, endpoints := run(data, path, opt.filterExt, opt.customPatterns)
+			secrets, urls, endpoints := run(data, path, opt.filterExt, opt.customPatterns, opt.extractSecrets, opt.extractURLs, opt.extractEndpoints)
 
 			results <- ScanResult{
 				Source:    path,
@@ -332,8 +363,9 @@ func processDirectory(dirPath string, opt *options, results chan<- ScanResult) {
 }
 
 // Collect and process results
-func collectResults(results <-chan ScanResult, outputFile *os.File, opt *options) {
+func collectResults(results <-chan ScanResult, outputFile *os.File, opt *options, humanConsole, writeJSON bool) {
 	var aggregated []ScanResult
+	needAgg := writeJSON || (humanConsole && opt.dedup)
 
 	for result := range results {
 		if result.Error != nil {
@@ -345,115 +377,193 @@ func collectResults(results <-chan ScanResult, outputFile *os.File, opt *options
 			continue
 		}
 
-		// Always print to console as before. Avoid writing plaintext to file when JSON output is enabled.
-		var outForHandlers *os.File
-		if outputFile == nil {
-			outForHandlers = nil
-		} else {
-			outForHandlers = nil
+		if humanConsole && !opt.dedup {
+			handleResults(opt.extractEndpoints, opt.extractURLs, opt.extractSecrets,
+				result.Secrets, result.URLs, result.Endpoints, result.Source, nil, !opt.noColor)
 		}
-		handleResults(opt.endpoint, opt.urls, opt.secret, opt.all,
-			result.Secrets, result.URLs, result.Endpoints, result.Source, outForHandlers, !opt.noColor)
 
-		// If output is requested, aggregate for JSON output
-		if outputFile != nil {
+		if needAgg {
 			aggregated = append(aggregated, result)
 		}
 	}
 
-	// If output file is provided, write aggregated JSON
-	if outputFile != nil {
-		// Redact secret details: include only the matched secret values
-		type jsonResult struct {
-			Source    string   `json:"source"`
-			URLs      []string `json:"urls"`
-			Endpoints []string `json:"endpoints"`
-			Secrets   []string `json:"secrets"`
-		}
+	outData := aggregated
+	if opt.dedup && len(aggregated) > 0 {
+		outData = dedupScanResults(aggregated, opt)
+	}
 
-		var filtered []jsonResult
-		for _, r := range aggregated {
-			var secretMatches []string
-			for _, s := range r.Secrets {
-				secretMatches = append(secretMatches, s.Match)
-			}
-			filtered = append(filtered, jsonResult{
-				Source:    r.Source,
-				URLs:      r.URLs,
-				Endpoints: r.Endpoints,
-				Secrets:   secretMatches,
-			})
+	if humanConsole && opt.dedup {
+		for _, r := range outData {
+			handleResults(opt.extractEndpoints, opt.extractURLs, opt.extractSecrets,
+				r.Secrets, r.URLs, r.Endpoints, r.Source, nil, !opt.noColor)
 		}
+	}
 
-		enc := json.NewEncoder(outputFile)
-		enc.SetIndent("", "  ")
-		if err := enc.Encode(filtered); err != nil {
-			if !opt.noColor {
-				gologger.Error().Msgf("failed to write json results: %v", err)
-			} else {
-				fmt.Printf("[ERR] failed to write json results: %v\n", err)
-			}
+	if !writeJSON {
+		return
+	}
+
+	var out io.Writer
+	switch {
+	case opt.output != "":
+		out = outputFile
+	default:
+		out = os.Stdout
+	}
+
+	if err := encodeJSONResults(out, outData, opt); err != nil {
+		if !opt.noColor {
+			gologger.Error().Msgf("failed to write json results: %v", err)
+		} else {
+			fmt.Printf("[ERR] failed to write json results: %v\n", err)
 		}
 	}
 }
 
-func run(Data []byte, Source string, FilterExtension []string, customPatternsFile string) ([]scanner.SecretMatched, []string, []string) {
+// dedupScanResults keeps first-seen order across sources: URLs, endpoints, and secret Match strings are unique globally.
+// Rows with no remaining hits for enabled extract types are dropped.
+func dedupScanResults(in []ScanResult, opt *options) []ScanResult {
+	seenURL := make(map[string]struct{})
+	seenEP := make(map[string]struct{})
+	seenSecret := make(map[string]struct{})
+	out := make([]ScanResult, 0, len(in))
+
+	for _, r := range in {
+		nr := ScanResult{Source: r.Source}
+		if opt.extractURLs {
+			for _, u := range r.URLs {
+				if _, ok := seenURL[u]; ok {
+					continue
+				}
+				seenURL[u] = struct{}{}
+				nr.URLs = append(nr.URLs, u)
+			}
+		}
+		if opt.extractEndpoints {
+			for _, e := range r.Endpoints {
+				if _, ok := seenEP[e]; ok {
+					continue
+				}
+				seenEP[e] = struct{}{}
+				nr.Endpoints = append(nr.Endpoints, e)
+			}
+		}
+		if opt.extractSecrets {
+			for _, s := range r.Secrets {
+				if _, ok := seenSecret[s.Match]; ok {
+					continue
+				}
+				seenSecret[s.Match] = struct{}{}
+				nr.Secrets = append(nr.Secrets, s)
+			}
+		}
+		if !scanResultHasAnyFinding(nr, opt) {
+			continue
+		}
+		out = append(out, nr)
+	}
+	return out
+}
+
+func scanResultHasAnyFinding(r ScanResult, opt *options) bool {
+	if opt.extractURLs && len(r.URLs) > 0 {
+		return true
+	}
+	if opt.extractEndpoints && len(r.Endpoints) > 0 {
+		return true
+	}
+	if opt.extractSecrets && len(r.Secrets) > 0 {
+		return true
+	}
+	return false
+}
+
+func encodeJSONResults(w io.Writer, aggregated []ScanResult, opt *options) error {
+	type jsonRow struct {
+		Source    string   `json:"source"`
+		URLs      []string `json:"urls,omitempty"`
+		Endpoints []string `json:"endpoints,omitempty"`
+		Secrets   []string `json:"secrets,omitempty"`
+	}
+
+	enc := json.NewEncoder(w)
+	enc.SetIndent("", "  ")
+
+	rows := make([]jsonRow, 0, len(aggregated))
+	for _, r := range aggregated {
+		var secretMatches []string
+		for _, s := range r.Secrets {
+			secretMatches = append(secretMatches, s.Match)
+		}
+
+		if !scanResultHasAnyFinding(r, opt) {
+			continue
+		}
+
+		jr := jsonRow{Source: r.Source}
+		if opt.extractURLs && len(r.URLs) > 0 {
+			jr.URLs = r.URLs
+		}
+		if opt.extractEndpoints && len(r.Endpoints) > 0 {
+			jr.Endpoints = r.Endpoints
+		}
+		if opt.extractSecrets && len(secretMatches) > 0 {
+			jr.Secrets = secretMatches
+		}
+		rows = append(rows, jr)
+	}
+
+	return enc.Encode(rows)
+}
+
+func run(Data []byte, Source string, FilterExtension []string, customPatternsFile string, wantSecrets, wantURLs, wantEndpoints bool) ([]scanner.SecretMatched, []string, []string) {
 	var sortedUrls []string
 	var sortedEndpoints []string
 
-	// Apply custom patterns if provided
 	var secretMatchResult []scanner.SecretMatched
-	if customPatternsFile != "" {
-		customSecrets, err := scanner.LoadCustomSecrets(customPatternsFile)
-		if err != nil {
-			gologger.Error().Msgf("Failed to load custom patterns: %v", err)
-			secretMatchResult = scanner.SecretsMatch(Source, Data)
-		} else {
-			secretMatchResult = scanner.SecretsMatchWithCustom(Source, Data, customSecrets)
-		}
-	} else {
-		secretMatchResult = scanner.SecretsMatch(Source, Data)
-	}
-
-	endpointMatchResult := scanner.EndpointsMatch(Data, FilterExtension)
-
-	for _, v := range endpointMatchResult {
-		if len(v) >= 4 && v[:4] == "http" || len(v) >= 5 && v[:5] == "https" {
-			if !strings.Contains(v, "w3.org") {
-				sortedUrls = append(sortedUrls, v)
-				continue
+	if wantSecrets {
+		if customPatternsFile != "" {
+			customSecrets, err := scanner.LoadCustomSecrets(customPatternsFile)
+			if err != nil {
+				gologger.Error().Msgf("Failed to load custom patterns: %v", err)
+				secretMatchResult = scanner.SecretsMatch(Source, Data)
+			} else {
+				secretMatchResult = scanner.SecretsMatchWithCustom(Source, Data, customSecrets)
 			}
 		} else {
-			sortedEndpoints = append(sortedEndpoints, v)
+			secretMatchResult = scanner.SecretsMatch(Source, Data)
+		}
+	}
+
+	if wantURLs || wantEndpoints {
+		endpointMatchResult := scanner.EndpointsMatch(Data, FilterExtension)
+		for _, v := range endpointMatchResult {
+			if len(v) >= 4 && v[:4] == "http" || len(v) >= 5 && v[:5] == "https" {
+				if !strings.Contains(v, "w3.org") {
+					if wantURLs {
+						sortedUrls = append(sortedUrls, v)
+					}
+					continue
+				}
+			} else {
+				if wantEndpoints {
+					sortedEndpoints = append(sortedEndpoints, v)
+				}
+			}
 		}
 	}
 
 	return secretMatchResult, sortedUrls, sortedEndpoints
 }
 
-func handleResults(endpoint, url, secret, all bool, secrets []scanner.SecretMatched, urls, endpoints []string, input string, outputFile *os.File, colorize bool) {
-	if all {
-		handleSecret(secrets, input, outputFile, colorize)
-		handleURL(urls, input, outputFile, colorize)
-		handleEndpoint(endpoints, input, outputFile, colorize)
-		return
-	}
-
-	if endpoint {
-		handleEndpoint(endpoints, input, outputFile, colorize)
-	}
-
-	if url {
-		handleURL(urls, input, outputFile, colorize)
-	}
-
-	if secret {
+func handleResults(extractEndpoints, extractURLs, extractSecrets bool, secrets []scanner.SecretMatched, urls, endpoints []string, input string, outputFile *os.File, colorize bool) {
+	if extractSecrets {
 		handleSecret(secrets, input, outputFile, colorize)
 	}
-
-	if !endpoint && !url && !secret && !all {
-		handleSecret(secrets, input, outputFile, colorize)
+	if extractURLs {
 		handleURL(urls, input, outputFile, colorize)
+	}
+	if extractEndpoints {
 		handleEndpoint(endpoints, input, outputFile, colorize)
 	}
 }
@@ -479,12 +589,6 @@ func handleSecret(secrets []scanner.SecretMatched, input string, outputFile *os.
 				fmt.Fprintf(outputFile, "Source: %s\nName: %s\nMatch: %s\n\n", input, secret.Secret.Name, secret.Match)
 			}
 		}
-	} else {
-		if colorize {
-			gologger.Info().Msgf("%s \nNo results for Secrets\n\n", input)
-		} else {
-			fmt.Printf("[INF] %s \nNo results for Secrets\n\n", input)
-		}
 	}
 }
 
@@ -504,12 +608,6 @@ func handleEndpoint(endpoints []string, input string, outputFile *os.File, color
 			}
 		}
 		fmt.Println("")
-	} else {
-		if colorize {
-			gologger.Info().Msgf("%s \nNo results for Endpoints\n\n", input)
-		} else {
-			fmt.Printf("[INF] %s \nNo results for Endpoints\n\n", input)
-		}
 	}
 }
 
@@ -529,12 +627,6 @@ func handleURL(urls []string, input string, outputFile *os.File, colorize bool) 
 			}
 		}
 		fmt.Println("")
-	} else {
-		if colorize {
-			gologger.Info().Msgf("%s \nNo results for URLs\n\n", input)
-		} else {
-			fmt.Printf("[INF] %s \nNo results for URLs\n\n", input)
-		}
 	}
 }
 
@@ -616,19 +708,22 @@ func printUsage() {
 	gologger.Print().Msgf("\tOr list of urls from stdin")
 
 	gologger.Print().Msgf("\nExtract Types:")
-	gologger.Print().Msgf("\t-endpoints, -ee      Extract endpoints")
-	gologger.Print().Msgf("\t-urls,      -eu      Extract URLs")
-	gologger.Print().Msgf("\t-secrets,   -es      Extract secrets")
+	gologger.Print().Msgf("\t-endpoints, -ee      Include endpoints (combine with -eu/-es as needed)")
+	gologger.Print().Msgf("\t-urls,      -eu      Include URLs (combine with -ee/-es as needed)")
+	gologger.Print().Msgf("\t-secrets,   -es      Include secrets (combine with -ee/-eu as needed)")
 	gologger.Print().Msgf("\t-all,       -ea      Extract all types")
+	gologger.Print().Msgf("\t(no -ee/-eu/-es)     Extract all types (default)")
 
 	gologger.Print().Msgf("\nOther Options:")
 	gologger.Print().Msgf("\t-header,          	-H     Set custom header (e.g., 'Authorization: Bearer token')")
 	gologger.Print().Msgf("\t-concurrent,      	-c     Number of concurrent workers [default: 10]")
 	gologger.Print().Msgf("\t-timeout,         	-t     Timeout in seconds for HTTP requests [default: 20]")
-	gologger.Print().Msgf("\t-output,          	-o     Output file to write results")
+	gologger.Print().Msgf("\t-output,          	-o     Write JSON results to file")
+	gologger.Print().Msgf("\t-json,            	-j     JSON to stdout if no -o; with -o, JSON file only (no human console)")
+	gologger.Print().Msgf("\t-dedup                  Deduplicate URLs, endpoints, and secrets across sources (first file wins)")
 	gologger.Print().Msgf("\t-patterns,        	-p     Custom regex patterns file")
 	gologger.Print().Msgf("\t-version,         	-V     Show version information")
-	gologger.Print().Msgf("\t-color,           	-C     Enable colorized output")
+	gologger.Print().Msgf("\t-no-color,        	-nc    Disable colorized output")
 	gologger.Print().Msgf("\t-filter-extension, -fe   Filter extensions in endpoint results (comma-separated)")
 
 	gologger.Print().Msgf("\nExamples:")

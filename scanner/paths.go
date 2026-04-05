@@ -53,7 +53,7 @@ func EndpointsMatch(Body []byte, FilterExtensions []string) []string {
 
 	// Exclude pure MIME type matches from results
 	excludeMimeTypeRule := strings.Join([]string{
-		`MM/DD/YYYY|MM/YY|DD/MM/YYYY|N/A|next/router|TLS/SSL|`,
+		`text/javascript|N/A|next/router|TLS/SSL|`,
 		`application/x-www-form-urlencoded|multipart/form-data|multipart/mixed|multipart/alternative|`,
 		`text/partytown|text/x-component|text/css|text/plain|text/html|text/xml|text/csv|text/markdown|text/babel|text/tsx|text/jsx|text/x-yaml|text/yaml|`,
 		`image/jpeg|image/jpg|image/png|image/svg+xml|image/gif|image/tiff|image/webp|image/bmp|image/x-icon|image/vnd.microsoft.icon|image/heic|image/heif|`,
@@ -97,7 +97,27 @@ func EndpointsMatch(Body []byte, FilterExtensions []string) []string {
 				continue
 			}
 
+			// Skip date format placeholders (e.g. M/d/yyyy, YYYY-MM-DD) without changing the main regex
+			if looksLikeDateFormatPlaceholder(cleanedMatch) {
+				continue
+			}
+
+			// Skip RegExp.prototype.source fragments captured as paths, e.g. /.source,\n              /\bq
+			if strings.HasPrefix(cleanedMatch, "/.source") {
+				continue
+			}
+
+			// Skip JS regex flags + comma/semicolon, e.g. /g, /i, /gi, /m; (not /graph, which has no , or ; right after flags)
+			if looksLikeJSRegexFlagsThenSeparator(cleanedMatch) {
+				continue
+			}
+
 			if strings.HasPrefix(cleanedMatch, "//") {
+				continue
+			}
+
+			// Skip IANA timezone IDs (e.g. Europe/London, America/New_York, Etc/GMT-0)
+			if looksLikeIANATimeZoneID(cleanedMatch) {
 				continue
 			}
 
@@ -119,4 +139,82 @@ func EndpointsMatch(Body []byte, FilterExtensions []string) []string {
 	}
 
 	return cleanedMatches
+}
+
+// looksLikeDateFormatPlaceholder reports strings that are only date mask tokens (M, D, Y)
+// separated by slashes or hyphens, e.g. "M/d/yyyy", "YYYY/MM/DD", "DD-M-YYYY".
+func looksLikeDateFormatPlaceholder(s string) bool {
+	if strings.Contains(s, "/") {
+		parts := strings.Split(s, "/")
+		return len(parts) >= 2 && segmentsOnlyDateTokens(parts)
+	}
+	if strings.Contains(s, "-") {
+		parts := strings.Split(s, "-")
+		return len(parts) >= 2 && segmentsOnlyDateTokens(parts)
+	}
+	return false
+}
+
+func segmentsOnlyDateTokens(parts []string) bool {
+	for _, p := range parts {
+		if p == "" {
+			return false
+		}
+		for _, r := range p {
+			switch r {
+			case 'M', 'm', 'D', 'd', 'Y', 'y':
+				continue
+			default:
+				return false
+			}
+		}
+	}
+	return true
+}
+
+// ianaTZAreaPrefixes are tz database top-level areas (first segment of Region/City IDs).
+var ianaTZAreaPrefixes = map[string]struct{}{
+	"Africa": {}, "America": {}, "Antarctica": {}, "Arctic": {}, "Asia": {},
+	"Atlantic": {}, "Australia": {}, "Europe": {}, "Indian": {}, "Pacific": {}, "Etc": {},
+}
+
+func looksLikeIANATimeZoneID(s string) bool {
+	s = strings.TrimPrefix(s, "/")
+	i := strings.IndexByte(s, '/')
+	if i <= 0 {
+		return false
+	}
+	area := s[:i]
+	_, ok := ianaTZAreaPrefixes[area]
+	return ok
+}
+
+// looksLikeJSRegexFlagsThenSeparator is true for "/"+one_or_more_flag_letters+[;,] at the start (regex literal tail).
+// Valid JS flags: g i m s u y d. Stops before paths like /graph (next char after flags is not , or ;).
+func looksLikeJSRegexFlagsThenSeparator(s string) bool {
+	if len(s) < 3 || s[0] != '/' {
+		return false
+	}
+	i := 1
+	for i < len(s) {
+		switch s[i] {
+		case 'g', 'i', 'm', 's', 'u', 'y', 'd':
+			i++
+		default:
+			if i < 2 {
+				return false
+			}
+			if i >= len(s) {
+				return false
+			}
+			return s[i] == ',' || s[i] == ';'
+		}
+	}
+	if i < 2 {
+		return false
+	}
+	if i >= len(s) {
+		return false
+	}
+	return s[i] == ',' || s[i] == ';'
 }

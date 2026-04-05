@@ -1,17 +1,16 @@
 # Extractify
 
-Extractify is a powerful tool for extracting endpoints, URLs and secrets from various sources. It can process URLs, files, or directories, making it perfect for security researchers, penetration testers, and developers.
+Extractify extracts **endpoints**, **URLs**, and **secrets** from JavaScript and other text—via HTTP URLs, local files, or directories. It is aimed at security reviews, reconnaissance, and quick asset discovery.
 
 ## Features
 
-- **Concurrent Scanning**: Process multiple targets simultaneously for faster results
-- **Multiple Data Sources**: Scan URLs, files, or entire directories
-- **Multiple Extract Types**:
-  - Extract endpoints (paths within content)
-  - Extract complete URLs
-  - Extract secrets and credentials from source code
-- **Custom Secret Patterns**: Define your own secret detection patterns
-- **Flexible Output**: Save results to file or display in terminal
+- **Concurrent scanning** for URL lists (configurable workers)
+- **Multiple inputs**: single URL, URL list file, directory walk, or stdin
+- **Selectable extractors**: endpoints (`-ee`), URLs (`-eu`), secrets (`-es`), or all (`-ea` / default)
+- **JSON output**: write with `-o` or print to stdout with `-json` (`-j`)
+- **Cross-file deduplication** with `-dedup` (first occurrence wins)
+- **Custom secret patterns** via JSON (`-p`)
+- **Endpoint noise reduction** (post-processing only; core regex unchanged): date masks, IANA timezones, common JS regex artifacts, MIME-like strings, and configurable extension filtering
 
 ## Installation
 
@@ -21,90 +20,70 @@ go install github.com/SharokhAtaie/extractify@latest
 
 ## Usage
 
-```
-Extractify - A tool for extracting endpoints, URLs, and secrets from various sources
+Run `extractify -h` for the full flag list. Common flags:
 
-Input Flags:
-	-url,      -u       URL for scanning
-	-list,     -l       List of URLs for scanning
-	-file,     -f       Local file or directory for scanning
-	Or list of urls from stdin
+| Flag | Short | Description |
+|------|-------|-------------|
+| `-url` | `-u` | Scan one URL |
+| `-list` | `-l` | File of URLs (whitespace-separated) |
+| `-file` | `-f` | File or directory to scan |
+| `-endpoints` | `-ee` | Include endpoints |
+| `-urls` | `-eu` | Include URLs |
+| `-secrets` | `-es` | Include secrets |
+| `-all` | `-ea` | All extract types |
+| `-output` | `-o` | Write **JSON** to file |
+| `-json` | `-j` | JSON to **stdout** when `-o` is omitted; with `-o`, JSON file only (no human-readable console) |
+| `-dedup` | | Deduplicate URLs, endpoints, and secret **match strings** across sources (first occurrence wins; JSON omits rows with nothing left) |
+| `-no-color` | `-nc` | Plain terminal output |
+| `-concurrent` | `-c` | Workers for URL mode (default `10`) |
+| `-timeout` | `-t` | HTTP timeout seconds (default `20`) |
+| `-header` | `-H` | Custom request header (`Name: value`) |
+| `-patterns` | `-p` | Custom secrets JSON file |
+| `-filter-extension` | `-fe` | Comma-separated extensions to drop from endpoint hits (default includes `woff2`) |
+| `-version` | `-V` | Print version and exit |
 
-Extract Types:
-	-endpoints, -ee      Extract endpoints
-	-urls,      -eu      Extract URLs
-	-secrets,   -es      Extract secrets
-	-all,       -ea      Extract all types
+### Extract types
 
-Other Options:
-	-header,          	-H     Set custom header (e.g., 'Authorization: Bearer token')
-	-concurrent,      	-c     Number of concurrent workers [default: 10]
-	-timeout,         	-t     Timeout in seconds for HTTP requests [default: 20]
-	-output,          	-o     Output file to write results (json)
-	-patterns,        	-p     Custom regex patterns file
-	-version,         	-V     Show version information
-	-no-color,          -nc    Disable colorized output
-	-filter-extension,  -fe    Filter extensions in endpoint results (comma-separated)
+- You can combine `-ee`, `-eu`, and `-es` (e.g. `-ee -es` for endpoints and secrets only).
+- If you pass **none** of `-ee`, `-eu`, `-es`, and **not** `-ea`, behavior is the same as **all** types (default).
+- `-ea` explicitly enables all three.
 
-Examples:
-	extractify -u https://example.com
-	extractify -l urls.txt -es -o results.json
-	extractify -f javascript_files/ -ea
-	extractify -f file.js -ea
-	cat urls.txt | extractify -ea -c 20
-```
+### JSON output
 
-### Basic Commands
+- Output is a **JSON array** of objects. Each object has `source` (file path or URL) and only non-empty fields among `urls`, `endpoints`, and `secrets` (for the extract types you enabled).
+- Sources with **no** findings for the enabled types are **skipped** in JSON (no empty arrays).
+- With **`-dedup`**, values are unique **globally** across the run; each string appears under the **first** source that still lists it after deduplication.
+
+### Human-readable output
+
+- Default (no `-o`, no `-json`): colored sections per source; **empty categories are silent** (no “no results” lines).
+- **`-dedup`**: human output is printed **after** the run, using deduplicated data (same ordering rules as JSON).
+
+### Basic examples
 
 ```bash
-# Scan a URL
+# Scan a URL (all extract types, human output)
 extractify -u https://example.com
 
-# Scan from a list of URLs
-extractify -l urls.txt
+# Endpoints only, JSON on stdout
+extractify -f ./app.js -ee -json
 
-# Scan a file
-extractify -f /path/to/file.js
+# Directory: secrets only, write JSON file
+extractify -f ./dist/ -es -o secrets.json
 
-# Scan a directory recursively
-extractify -f /path/to/directory
+# All types, dedupe across files, save JSON
+extractify -f ./js/ -dedup -o findings.json
 
-# Pipe URLs from another command
-cat urls.txt | extractify
+# URL list, 20 workers, custom header
+extractify -l urls.txt -c 20 -H "Cookie: session=abc"
+
+# Pipe URLs
+cat urls.txt | extractify -eu -json
 ```
 
-### Extraction Options
+## Custom secret patterns
 
-```bash
-# Extract only endpoints
-extractify -u https://example.com -ee
-
-# Extract only URLs
-extractify -u https://example.com -eu
-
-# Extract only secrets
-extractify -u https://example.com -es
-
-# Extract all
-extractify -u https://example.com -ea
-```
-
-### Advanced Options
-
-```bash
-# Set custom HTTP header
-extractify -u https://example.com -H "Authorization: Bearer token"
-
-# Set concurrency level (10 default)
-extractify -l urls.txt -c 20
-
-# Save output to file
-extractify -u https://example.com -o results.json
-```
-
-## Custom Secret Patterns
-
-You can define your own secret detection patterns in a JSON file:
+Define patterns in JSON:
 
 ```json
 [
@@ -118,25 +97,22 @@ You can define your own secret detection patterns in a JSON file:
 ]
 ```
 
-Then use it with:
-
 ```bash
 extractify -u https://example.com -p patterns.json
 ```
 
-## Examples
-
-Extract all information types from multiple URLs:
+## Development
 
 ```bash
-extractify -l urls.txt -ea -o results.json
+go test ./... -race
+go build -o extractify .
 ```
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+This project is licensed under the MIT License—see the LICENSE file.
 
 ## Acknowledgments
 
-- [Cariddi](https://github.com/edoardottt/cariddi) - For secret detection regex patterns
-- [LinkFinder](https://github.com/GerbenJavado/LinkFinder) - For endpoint regex patterns
+- [Cariddi](https://github.com/edoardottt/cariddi) — secret detection patterns
+- [LinkFinder](https://github.com/GerbenJavado/LinkFinder) — endpoint extraction ideas
