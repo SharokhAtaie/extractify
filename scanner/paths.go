@@ -82,14 +82,6 @@ func EndpointsMatch(Body []byte, FilterExtensions []string) []string {
 	var cleanedMatches []string
 	seenLines := make(map[string]bool)
 
-	falsePositivePrefixes := []string{
-		"application/",
-		"text/",
-		"video/",
-		"image/",
-		"audio/",
-	}
-
 	for _, match := range matches {
 		// The new regex captures the URL/path in match[1]
 		if len(match) > 1 {
@@ -105,13 +97,9 @@ func EndpointsMatch(Body []byte, FilterExtensions []string) []string {
 				continue
 			}
 
-			for _, prefix := range falsePositivePrefixes {
-
-				if strings.HasPrefix(strings.ToLower(cleanedMatch), prefix) {
-					// matched
-					continue
-				}
-
+			// Skip application/* media types (e.g. application/vnd.*, application/wasm) often captured as paths
+			if strings.HasPrefix(strings.ToLower(cleanedMatch), "application/") || strings.HasPrefix(strings.ToLower(cleanedMatch), "text/") || strings.HasPrefix(strings.ToLower(cleanedMatch), "video/") || strings.HasPrefix(strings.ToLower(cleanedMatch), "image/") || strings.HasPrefix(strings.ToLower(cleanedMatch), "audio/") {
+				continue
 			}
 
 			// Skip date format placeholders (e.g. M/d/yyyy, YYYY-MM-DD) without changing the main regex

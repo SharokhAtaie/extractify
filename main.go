@@ -308,16 +308,29 @@ func processSingleFile(filePath string, opt *options, results chan<- ScanResult)
 	time.Sleep(100 * time.Millisecond)
 }
 
+// directoryDisplayName returns a short label for spinner output (e.g. "." → actual folder name).
+func directoryDisplayName(dirPath string) string {
+	abs, err := filepath.Abs(dirPath)
+	if err != nil {
+		return dirPath
+	}
+	return filepath.Base(filepath.Clean(abs))
+}
+
 // Process a directory recursively
 func processDirectory(dirPath string, opt *options, results chan<- ScanResult) {
-
-	spin := spinner.New(spinner.CharSets[9], 100*time.Millisecond)
-	spinnerSuffix := " Processing directory: " + dirPath + "\n\n"
-	spin.Suffix = spinnerSuffix
-
-	// Disable spinner colors when no-color is set
+	display := directoryDisplayName(dirPath)
+	spin := spinner.New(
+		spinner.CharSets[14],
+		85*time.Millisecond,
+		spinner.WithSuffix(fmt.Sprintf("  Scanning %s  ", display)),
+		spinner.WithFinalMSG("\n"),
+	)
+	spin.Prefix = "  "
 	if opt.noColor {
-		spin.Color("reset") // Use default terminal color
+		_ = spin.Color("reset")
+	} else {
+		_ = spin.Color("bold", "fgCyan")
 	}
 
 	spin.Start()
