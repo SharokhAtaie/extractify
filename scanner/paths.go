@@ -97,6 +97,11 @@ func EndpointsMatch(Body []byte, FilterExtensions []string) []string {
 				continue
 			}
 
+			// Skip application/* media types (e.g. application/vnd.*, application/wasm) often captured as paths
+			if strings.HasPrefix(strings.ToLower(cleanedMatch), "application/") {
+				continue
+			}
+
 			// Skip date format placeholders (e.g. M/d/yyyy, YYYY-MM-DD) without changing the main regex
 			if looksLikeDateFormatPlaceholder(cleanedMatch) {
 				continue
