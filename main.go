@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/SharokhAtaie/extractify/scanner"
-	"github.com/briandowns/spinner"
 	"github.com/logrusorgru/aurora/v4"
 	"github.com/projectdiscovery/goflags"
 	"github.com/projectdiscovery/gologger"
@@ -308,33 +307,8 @@ func processSingleFile(filePath string, opt *options, results chan<- ScanResult)
 	time.Sleep(100 * time.Millisecond)
 }
 
-// directoryDisplayName returns a short label for spinner output (e.g. "." → actual folder name).
-func directoryDisplayName(dirPath string) string {
-	abs, err := filepath.Abs(dirPath)
-	if err != nil {
-		return dirPath
-	}
-	return filepath.Base(filepath.Clean(abs))
-}
-
 // Process a directory recursively
 func processDirectory(dirPath string, opt *options, results chan<- ScanResult) {
-	display := directoryDisplayName(dirPath)
-	spin := spinner.New(
-		spinner.CharSets[14],
-		85*time.Millisecond,
-		spinner.WithSuffix(fmt.Sprintf("  Scanning %s  ", display)),
-		spinner.WithFinalMSG("\n"),
-	)
-	spin.Prefix = "  "
-	if opt.noColor {
-		_ = spin.Color("reset")
-	} else {
-		_ = spin.Color("bold", "fgCyan")
-	}
-
-	spin.Start()
-
 	err := filepath.WalkDir(dirPath, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -362,9 +336,6 @@ func processDirectory(dirPath string, opt *options, results chan<- ScanResult) {
 		}
 		return nil
 	})
-
-	// Always stop the spinner
-	spin.Stop()
 
 	if err != nil {
 		if !opt.noColor {
